@@ -1,0 +1,2 @@
+# KK_ExternalVoiceEditor-SBV2
+コイカツのキャラスタジオで、任意ボイスを使用する音声合成（Style-Bert-VITS2）とKK_ExternalVoiceLoaderのデータ編集補助ツール（KK_ExternalVoiceLoaderは用意しなくてよい）
