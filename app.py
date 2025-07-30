@@ -15,6 +15,11 @@ from style_bert_vits2.nlp.japanese import pyopenjtalk_worker
 from style_bert_vits2.nlp.japanese.user_dict import update_dict
 from style_bert_vits2.tts_model import TTSModelHolder
 
+import os
+# ローカルアドレスに対してプロキシを使用しないように設定
+os.environ["http_proxy" ] = ""
+os.environ["https_proxy"] = ""
+os.environ["no_proxy"   ] = "localhost,127.0.0.1,::1"
 
 # このプロセスからはワーカーを起動して辞書を使いたいので、ここで初期化
 pyopenjtalk_worker.initialize_worker()
