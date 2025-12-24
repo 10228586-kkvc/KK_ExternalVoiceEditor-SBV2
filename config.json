@@ -1,4 +1,6 @@
 {
+	"dataset_root": "Data", 
+	"assets_root": "model_assets", 
 	"tab_list": ["kkeve"], 
 	"tab_interface": {"kkeve": "create_interface"}, 
 	"db_path": "app.db", 
