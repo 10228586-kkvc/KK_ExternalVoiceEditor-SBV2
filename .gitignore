@@ -34,7 +34,6 @@ dist/
 /mos_results/
 
 safetensors.ipynb
-*.wav
 /static/
 
 # pyopenjtalk's dictionary
