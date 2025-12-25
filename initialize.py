@@ -15,7 +15,6 @@ def download_bert_models():
 		local_path = Path("bert").joinpath(k)
 		for file in v["files"]:
 			if not Path(local_path).joinpath(file).exists():
-				logger.info(f"Downloading {k} {file}")
 				hf_hub_download(v["repo_id"], file, local_dir=local_path)
 
 # ------------------------------------------------------------------------------
@@ -24,7 +23,6 @@ def download_slm_model():
 	local_path = Path("slm/wavlm-base-plus/")
 	file = "pytorch_model.bin"
 	if not Path(local_path).joinpath(file).exists():
-		logger.info(f"Downloading wavlm-base-plus {file}")
 		hf_hub_download("microsoft/wavlm-base-plus", file, local_dir=local_path)
 
 # ============================================================================ #
