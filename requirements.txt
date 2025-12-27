@@ -22,9 +22,11 @@ pypinyin
 pyworld-prebuilt
 #stable_ts
 #tensorboard
---extra-index-url https://download.pytorch.org/whl/cu121
-torch==2.4.0+cu121
-torchaudio==2.4.0+cu121
+torch<2.4
+torchaudio<2.4
+#--extra-index-url https://download.pytorch.org/whl/cu121
+#torch==2.4.0+cu121
+#torchaudio==2.4.0+cu121
 transformers==4.44.2
 umap-learn
 huggingface_hub

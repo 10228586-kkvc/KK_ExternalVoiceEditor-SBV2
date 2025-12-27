@@ -1,8 +1,9 @@
 {
-	"dataset_root": "Data", 
+	"model_repository": "kkvc-hf/style-bert-vits2-ja-models", 
+	"model_target": ["config.json", "model.safetensors", "style_vectors.npy"], 
 	"assets_root": "model_assets", 
-	"tab_list": ["kkeve"], 
-	"tab_interface": {"kkeve": "create_interface"}, 
+	"tab_list": ["kkeve", "sbv2"], 
+	"tab_interface": {"kkeve": "create_interface", "sbv2": "create_inference_app"}, 
 	"db_path": "app.db", 
 	"tbl_voice": "voice", 
 	"tbl_character": "character", 

@@ -21,8 +21,132 @@ import subprocess
 import shutil
 from pathlib import Path
 import importlib
+from huggingface_hub import list_repo_files, hf_hub_download, snapshot_download
 import gradio_tabs.kkeve as kkeve
+import gradio_tabs.sbv2 as sbv2
 # ==============================================================================
+
+# ============================================================================ #
+#                          [ モデルダウンロード関数 ]                          #
+# ============================================================================ #
+
+# モデルダウンロード
+def download_all_files(repo_id: str, local_dir: str, revision: str = "main"):
+
+	# 保存先ディレクトリを作り直す
+	if os.path.exists(local_dir):
+		shutil.rmtree(local_dir)
+	os.makedirs(local_dir, exist_ok=True)
+
+	# リポジトリ内のファイル一覧を取得
+	file_list = list_repo_files(repo_id, revision=revision)
+	#print(f"[{repo_id}@{revision}] に {len(file_list)} 件のファイルが見つかりました。")
+
+	for file_path in file_list:
+		# すでにモデル名のフォルダがあればダウンロードをスキップ
+		base_name = os.path.basename(file_path)
+		if base_name not in conf['model_target']:
+			continue
+
+		# 各ファイルをローカルに保存（フォルダ構造を再現）
+		local_path = os.path.dirname(os.path.join(local_dir, file_path))
+		print(f"モデルファイルチェック: {file_path}")
+		cache_path = hf_hub_download(
+			repo_id=repo_id,
+			filename=file_path,
+			revision=revision
+		)
+		#print(f"cache_path:{cache_path}  file_path:{file_path}\n")
+		os.makedirs(local_path, exist_ok=True)
+		shutil.copy(cache_path, local_path)
+
+	print("モデルファイルチェック完了")
+
+# ------------------------------------------------------------------------------
+# 既存の name を取得
+def get_existing_names(cursor):
+	cursor.execute("SELECT name FROM model")
+	rows = cursor.fetchall()
+	return {row[0] for row in rows}
+
+# データベースのmodelテーブルに登録が無ければ追加
+def process_directory(base_dir, db_path):
+	# データベースに接続
+	conn = sqlite3.connect(db_path)
+	cursor = conn.cursor()
+
+	existing_names = get_existing_names(cursor)
+
+	# ディレクトリ内のフォルダ取得
+	for name in os.listdir(base_dir):
+		dir_path = os.path.join(base_dir, name)
+		if not os.path.isdir(dir_path):
+			continue  # サブディレクトリでない場合は無視
+
+		if name in existing_names:
+			continue  # すでに登録済み
+
+		config_path = os.path.join(dir_path, "config.json")
+		if not os.path.exists(config_path):
+			print(f"config.json が見つかりません: {config_path}")
+			continue
+
+		try:
+			with open(config_path, "r", encoding="utf-8") as f:
+				config = json.load(f)
+
+			model_id    = config.get("id")
+			sort        = config.get("sort")
+			description = config.get("description")
+			character   = config.get("character")
+
+			if model_id is None:
+				print(f"id が config.json に存在しません: {config_path}")
+				continue
+
+			# データベースに挿入
+			cursor.execute(
+				"INSERT INTO model (id, sort, name, description, character) VALUES (?, ?, ?, ?, ?)",
+				(model_id, sort, name, description, character)
+			)
+			print(f"追加: {name}")
+
+		except Exception as e:
+			print(f"エラー発生 ({config_path}): {e}")
+
+	# 保存して接続終了
+	conn.commit()
+	conn.close()
+
+# ------------------------------------------------------------------------------
+# データベースのmodelテーブルにしかないレコードを削除
+def delete_nonexistent_dirs(base_dir, db_path):
+	# データベース接続
+	conn = sqlite3.connect(db_path)
+	cursor = conn.cursor()
+
+	# 実際に存在するディレクトリ名の一覧を取得
+	actual_dirs = {name for name in os.listdir(base_dir) if os.path.isdir(os.path.join(base_dir, name))}
+
+	# データベース上の name 一覧を取得
+	cursor.execute("SELECT name FROM model WHERE id != '0000'")
+	db_names = [row[0] for row in cursor.fetchall()]
+
+	# 存在しないディレクトリに対応する name を削除対象に
+	to_delete = [name for name in db_names if name not in actual_dirs]
+
+	for name in to_delete:
+		cursor.execute("DELETE FROM model WHERE name = ?", (name,))
+		print(f"削除: {name}")
+
+	# 変更を保存して接続終了
+	conn.commit()
+	conn.close()
+
+# ============================================================================ #
+#                           [ インターフェース関数 ]                           #
+# ============================================================================ #
+
 # キャッシュ取得
 def get_cache(tab, field):
 	global conf
@@ -99,6 +223,7 @@ def change_language(language):
 def create_interface():
 	global conf
 	kkeve.main(conf)
+	sbv2.main(conf)
 
 	# 言語
 	conf['language'] = get_cache("inference", "language")
@@ -202,6 +327,17 @@ def main(config):
 	global conf
 	conf = config
 
+	# --------------------------------------------------------------------------
+	# モデルダウンロード
+	download_all_files(repo_id=conf['model_repository'], local_dir=conf['assets_root'])
+
+	# データベースのmodelテーブルに登録が無ければ追加
+	process_directory(conf['assets_root'], conf['db_path'])
+
+	# データベースのmodelテーブルにしかないレコードを削除
+	delete_nonexistent_dirs(conf['assets_root'], conf['db_path'])
+
+	# --------------------------------------------------------------------------
 	app = create_interface()
 	app.launch(inbrowser=True)
 
@@ -213,7 +349,8 @@ if __name__ == "__main__":
 
 	# タブキーとモジュールを繋ぐ
 	config["tab_module"] = {
-		"kkeve": kkeve
+		"kkeve": kkeve, 
+		"sbv2": sbv2 
 	}
 
 	main(config)
