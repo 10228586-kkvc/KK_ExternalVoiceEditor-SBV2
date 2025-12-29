@@ -1,21 +1,38 @@
+# ┌──────────────────────────────────────
+# │  KK_ExternalVoiceEditor v1.0.0 (2025.06.01)
+# └──────────────────────────────────────
+# ==============================================================================
 import datetime
 import json
 from typing import Optional
-
+from pathlib import Path
 import gradio as gr
 
+import locale
+import sqlite3
+import pandas as pd
+import random
+import string
+import os
+import re
+import winreg
+import tempfile
+import zipfile
+import subprocess
+import shutil
+
 from style_bert_vits2.constants import (
-	DEFAULT_ASSIST_TEXT_WEIGHT,
-	DEFAULT_LENGTH,
-	DEFAULT_LINE_SPLIT,
-	DEFAULT_NOISE,
-	DEFAULT_NOISEW,
-	DEFAULT_SDP_RATIO,
-	DEFAULT_SPLIT_INTERVAL,
-	DEFAULT_STYLE,
-	DEFAULT_STYLE_WEIGHT,
-	GRADIO_THEME,
-	Languages,
+	DEFAULT_ASSIST_TEXT_WEIGHT, 
+	DEFAULT_LENGTH, 
+	DEFAULT_LINE_SPLIT, 
+	DEFAULT_NOISE, 
+	DEFAULT_NOISEW, 
+	DEFAULT_SDP_RATIO, 
+	DEFAULT_SPLIT_INTERVAL, 
+	DEFAULT_STYLE, 
+	DEFAULT_STYLE_WEIGHT, 
+	GRADIO_THEME, 
+	Languages, 
 )
 from style_bert_vits2.logging import logger
 from style_bert_vits2.models.infer import InvalidToneError
@@ -24,15 +41,10 @@ from style_bert_vits2.nlp.japanese.g2p_utils import g2kata_tone, kata_tone2phone
 from style_bert_vits2.nlp.japanese.normalizer import normalize_text
 from style_bert_vits2.tts_model import TTSModelHolder
 
-
-# pyopenjtalk_worker を起動
-## pyopenjtalk_worker は TCP ソケットサーバーのため、ここで起動する
 pyopenjtalk.initialize_worker()
+# ==============================================================================
 
-# Web UI での学習時の無駄な GPU VRAM 消費を避けるため、あえてここでは BERT モデルの事前ロードを行わない
-# データセットの BERT 特徴量は事前に bert_gen.py により抽出されているため、学習時に BERT モデルをロードしておく必要はない
-# BERT モデルの事前ロードは「ロード」ボタン押下時に実行される TTSModelHolder.get_model_for_gradio() 内で行われる
-# Web UI での学習時、音声合成タブの「ロード」ボタンを押さなければ、BERT モデルが VRAM にロードされていない状態で学習を開始できる
+
 
 languages = [lang.value for lang in Languages]
 
@@ -95,136 +107,109 @@ examples = [
 	],
 ]
 
-initial_md = """
-- Ver 2.5で追加されたデフォルトの [`koharune-ami`（小春音アミ）モデル](https://huggingface.co/litagin/sbv2_koharune_ami) と[`amitaro`（あみたろ）モデル](https://huggingface.co/litagin/sbv2_amitaro) は、[あみたろの声素材工房](https://amitaro.net/)で公開されているコーパス音源・ライブ配信音声を利用して事前に許可を得て学習したモデルです。下記の**利用規約を必ず読んで**からご利用ください。
+# ------------------------------------------------------------------------------
+# キャッシュ取得
+def get_cache(tab, field):
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+	cursor.execute(f"SELECT value FROM {conf['tbl_gradio']} WHERE tab = ? AND field = ?", (tab, field))
+	result = cursor.fetchone()
+	conn.close()
+	if not result:
+		return None
+	return result[0]
 
-- Ver 2.5のアップデート後に上記モデルをダウンロードするには、`Initialize.bat`をダブルクリックするか、手動でダウンロードして`model_assets`ディレクトリに配置してください。
+# ------------------------------------------------------------------------------
+# キャッシュ変更
+def update_cache(tab, field, value):
+	# JSON文字列化（日本語OK）
+	value_str = json.dumps(value, ensure_ascii=False)
+	# 文字列の両端のダブルクォートを削除
+	if isinstance(value, str):
+		value_str = value_str.strip('"')
 
-- Ver 2.3で追加された**エディター版**のほうが実際に読み上げさせるには使いやすいかもしれません。`Editor.bat`か`python server_editor.py --inbrowser`で起動できます。
-"""
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+	cursor.execute(f"UPDATE {conf['tbl_gradio']} SET value = ? WHERE tab = ? AND field = ?", (value_str, tab, field))
+	conn.commit()
+	conn.close()
 
-terms_of_use_md = """
-## お願いとデフォルトモデルのライセンス
+# ------------------------------------------------------------------------------
+# 言語別メッセージ取得
+def get_message(target, id, cd, **kwargs):
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+	cursor.execute("SELECT value FROM language WHERE target = ? AND id = ? AND cd = ?", (target, id, cd))
+	template = cursor.fetchone()[0]
+	return template.format(**kwargs)
 
-最新のお願い・利用規約は [こちら](https://github.com/litagin02/Style-Bert-VITS2/blob/master/docs/TERMS_OF_USE.md) を参照してください。常に最新のものが適用されます。
-
-Style-Bert-VITS2を用いる際は、以下のお願いを守っていただけると幸いです。ただしモデルの利用規約以前の箇所はあくまで「お願い」であり、何の強制力はなく、Style-Bert-VITS2の利用規約ではありません。よって[リポジトリのライセンス](https://github.com/litagin02/Style-Bert-VITS2#license)とは矛盾せず、リポジトリの利用にあたっては常にリポジトリのライセンスのみが拘束力を持ちます。
-
-### やってほしくないこと
-
-以下の目的での利用はStyle-Bert-VITS2を使ってほしくありません。
-
-- 法律に違反する目的
-- 政治的な目的（本家Bert-VITS2で禁止されています）
-- 他者を傷つける目的
-- なりすまし・ディープフェイク作成目的
-
-### 守ってほしいこと
-
-- Style-Bert-VITS2を利用する際は、使用するモデルの利用規約・ライセンス必ず確認し、存在する場合はそれに従ってほしいです。
-- またソースコードを利用する際は、[リポジトリのライセンス](https://github.com/litagin02/Style-Bert-VITS2#license)に従ってほしいです。
-
-以下はデフォルトで付随しているモデルのライセンスです。
-
-### JVNVコーパス (jvnv-F1-jp, jvnv-F2-jp, jvnv-M1-jp, jvnv-M2-jp)
-
-- [JVNVコーパス](https://sites.google.com/site/shinnosuketakamichi/research-topics/jvnv_corpus) のライセンスは[CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0/deed.ja)ですので、これを継承します。
-
-### 小春音アミ (koharune-ami) / あみたろ (amitaro)
-
-[あみたろの声素材工房様の規約](https://amitaro.net/voice/voice_rule/) と [あみたろのライブ配信音声・利用規約](https://amitaro.net/voice/livevoice/#index_id6) を全て守らなければなりません。特に、以下の事項を遵守してください（規約を守れば商用非商用問わず利用できます）：
-
-#### 禁止事項
-
-- 年齢制限のある作品・用途への使用
-- 新興宗教・政治・マルチ購などに深く関係する作品・用途
-- 特定の団体や個人や国家を誹謗中傷する作品・用途
-- 生成された音声を、あみたろ本人の声として扱うこと
-- 生成された音声を、あみたろ以外の人の声として扱うこと
-
-#### クレジット表記
-
-生成音声を公開する際は（媒体は問わない）、必ず分かりやすい場所に `あみたろの声素材工房 (https://amitaro.net/)` の声を元にした音声モデルを使用していることが分かるようなクレジット表記を記載してください。
-
-クレジット表記例:
-- `Style-BertVITS2モデル: 小春音アミ、あみたろの声素材工房 (https://amitaro.net/)`
-- `Style-BertVITS2モデル: あみたろ、あみたろの声素材工房 (https://amitaro.net/)`
-
-#### モデルマージ
-
-モデルマージに関しては、[あみたろの声素材工房のよくある質問への回答](https://amitaro.net/voice/faq/#index_id17)を遵守してください：
-- 本モデルを別モデルとマージできるのは、その別モデル作成の際に学習に使われた声の権利者が許諾している場合に限る
-- あみたろの声の特徴が残っている場合（マージの割合が25%以上の場合）は、その利用は[あみたろの声素材工房様の規約](https://amitaro.net/voice/voice_rule/)の範囲内に限定され、そのモデルに関してもこの規約が適応される
-"""
-
-how_to_md = """
-下のように`model_assets`ディレクトリの中にモデルファイルたちを置いてください。
-```
-model_assets
-├── your_model
-│	 ├── config.json
-│	 ├── your_model_file1.safetensors
-│	 ├── your_model_file2.safetensors
-│	 ├── ...
-│	 └── style_vectors.npy
-└── another_model
-	├── ...
-```
-各モデルにはファイルたちが必要です：
-- `config.json`：学習時の設定ファイル
-- `*.safetensors`：学習済みモデルファイル（1つ以上が必要、複数可）
-- `style_vectors.npy`：スタイルベクトルファイル
-
-上2つは`Train.bat`による学習で自動的に正しい位置に保存されます。`style_vectors.npy`は`Style.bat`を実行して指示に従って生成してください。
-"""
-
-style_md = f"""
-- プリセットまたは音声ファイルから読み上げの声音・感情・スタイルのようなものを制御できます。
-- デフォルトの{DEFAULT_STYLE}でも、十分に読み上げる文に応じた感情で感情豊かに読み上げられます。このスタイル制御は、それを重み付きで上書きするような感じです。
-- 強さを大きくしすぎると発音が変になったり声にならなかったりと崩壊することがあります。
-- どのくらいに強さがいいかはモデルやスタイルによって異なるようです。
-- 音声ファイルを入力する場合は、学習データと似た声音の話者（特に同じ性別）でないとよい効果が出ないかもしれません。
-"""
+# ------------------------------------------------------------------------------
+# 言語別メッセージ群取得
+def get_messages(target, cd):
+	conn = sqlite3.connect(conf['db_path'])
+	df = pd.read_sql_query(f"SELECT id, value FROM language WHERE target = '{target}' AND cd = '{cd}'", conn)
+	conn.close()
+	return df
 
 
+# ------------------------------------------------------------------------------
+# モデルファイル有効化切替
 def make_interactive():
 	return gr.update(interactive=True, value="音声合成")
 
-
+# ------------------------------------------------------------------------------
+# モデルファイル無効化切替
 def make_non_interactive():
 	return gr.update(interactive=False, value="音声合成（モデルをロードしてください）")
 
-
+# ------------------------------------------------------------------------------
+# スタイルの指定方法切替
 def gr_util(item):
 	if item == "プリセットから選ぶ":
 		return (gr.update(visible=True), gr.Audio(visible=False, value=None))
 	else:
 		return (gr.update(visible=False), gr.update(visible=True))
 
+# ------------------------------------------------------------------------------
+# Gradioインターフェース
+#def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
+def create_inference_app(language_state) -> gr.Blocks:
 
-def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
+	global conf
+
+	import torch
+	from style_bert_vits2.constants import Languages
+	from style_bert_vits2.nlp import bert_models
+
+	# BERT日本語解析モデル
+	bert_models.load_model(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm")
+	bert_models.load_tokenizer(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm")
+
+	device = "cuda" if torch.cuda.is_available() else "cpu"
+	model_holder = TTSModelHolder(Path(conf['assets_root']), device)
+
 	def tts_fn(
-		model_name,
-		model_path,
-		text,
-		language,
-		reference_audio_path,
-		sdp_ratio,
-		noise_scale,
-		noise_scale_w,
-		length_scale,
-		line_split,
-		split_interval,
-		assist_text,
-		assist_text_weight,
-		use_assist_text,
-		style,
-		style_weight,
-		kata_tone_json_str,
-		use_tone,
-		speaker,
-		pitch_scale,
-		intonation_scale,
+		model_name, 
+		model_path, 
+		text, 
+		language, 
+		reference_audio_path, 
+		sdp_ratio, 
+		noise_scale, 
+		noise_scale_w, 
+		length_scale, 
+		line_split, 
+		split_interval, 
+		assist_text, 
+		assist_text_weight, 
+		use_assist_text, 
+		style, 
+		style_weight, 
+		kata_tone_json_str, 
+		use_tone, 
+		speaker, 
+		pitch_scale, 
+		intonation_scale, 
 	):
 		model_holder.get_model(model_name, model_path)
 		assert model_holder.current_model is not None
@@ -232,14 +217,18 @@ def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
 		wrong_tone_message = ""
 		kata_tone: Optional[list[tuple[str, int]]] = None
 		if use_tone and kata_tone_json_str != "":
+
 			if language != "JP":
 				logger.warning("Only Japanese is supported for tone generation.")
 				wrong_tone_message = "アクセント指定は現在日本語のみ対応しています。"
+
 			if line_split:
 				logger.warning("Tone generation is not supported for line split.")
 				wrong_tone_message = (
 					"アクセント指定は改行で分けて生成を使わない場合のみ対応しています。"
 				)
+
+
 			try:
 				kata_tone = []
 				json_data = json.loads(kata_tone_json_str)
@@ -247,6 +236,7 @@ def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
 				for kana, tone in json_data:
 					assert isinstance(kana, str) and tone in (0, 1), f"{kana}, {tone}"
 					kata_tone.append((kana, tone))
+
 			except Exception as e:
 				logger.warning(f"Error occurred when parsing kana_tone_json: {e}")
 				wrong_tone_message = f"アクセント指定が不正です: {e}"
@@ -305,6 +295,7 @@ def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
 			message = wrong_tone_message + "\n" + message
 		return message, (sr, audio), kata_tone_json_str
 
+	# 音声合成モデルチェック
 	model_names = model_holder.model_names
 	if len(model_names) == 0:
 		logger.error(
@@ -320,34 +311,31 @@ def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
 		str(f) for f in model_holder.model_files_dict[model_names[initial_id]]
 	]
 
+	# --------------------------------------------------------------------------
 	with gr.Blocks(theme=GRADIO_THEME) as app:
-		gr.Markdown(initial_md)
-		gr.Markdown(terms_of_use_md)
-		with gr.Accordion(label="使い方", open=False):
-			gr.Markdown(how_to_md)
 		with gr.Row():
 			with gr.Column():
 				with gr.Row():
 					with gr.Column(scale=3):
 						model_name = gr.Dropdown(
-							label="モデル一覧",
-							choices=model_names,
-							value=model_names[initial_id],
+							label="モデル一覧", 
+							choices=model_names, 
+							value=model_names[initial_id], 
 						)
 						model_path = gr.Dropdown(
-							label="モデルファイル",
-							choices=initial_pth_files,
-							value=initial_pth_files[0],
+							label="モデルファイル", 
+							choices=initial_pth_files, 
+							value=initial_pth_files[0], 
 						)
 					refresh_button = gr.Button("更新", scale=1, visible=True)
 					load_button = gr.Button("ロード", scale=1, variant="primary")
 				text_input = gr.TextArea(label="テキスト", value=initial_text)
 				pitch_scale = gr.Slider(
-					minimum=0.8,
-					maximum=1.5,
-					value=1,
-					step=0.05,
-					label="音高(1以外では音質劣化)",
+					minimum=0.8, 
+					maximum=1.5, 
+					value=1, 
+					step=0.05, 
+					label="音高(1以外では音質劣化)", 
 				)
 				intonation_scale = gr.Slider(
 					minimum=0,
@@ -437,8 +425,6 @@ def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
 						outputs=[assist_text, assist_text_weight],
 					)
 			with gr.Column():
-				with gr.Accordion("スタイルについて詳細", open=False):
-					gr.Markdown(style_md)
 				style_mode = gr.Radio(
 					["プリセットから選ぶ", "音声ファイルを入力"],
 					label="スタイルの指定方法",
@@ -469,61 +455,63 @@ def create_inference_app(model_holder: TTSModelHolder) -> gr.Blocks:
 				with gr.Accordion("テキスト例", open=False):
 					gr.Examples(examples, inputs=[text_input, language])
 
+		# ----------------------------------------------------------------------
+		# イベントハンドラ
+
 		tts_button.click(
-			tts_fn,
+			tts_fn, 
 			inputs=[
-				model_name,
-				model_path,
-				text_input,
-				language,
-				ref_audio_path,
-				sdp_ratio,
-				noise_scale,
-				noise_scale_w,
-				length_scale,
-				line_split,
-				split_interval,
-				assist_text,
-				assist_text_weight,
-				use_assist_text,
-				style,
-				style_weight,
-				tone,
-				use_tone,
-				speaker,
-				pitch_scale,
-				intonation_scale,
+				model_name, 
+				model_path, 
+				text_input, 
+				language, 
+				ref_audio_path, 
+				sdp_ratio, 
+				noise_scale, 
+				noise_scale_w, 
+				length_scale, 
+				line_split, 
+				split_interval, 
+				assist_text, 
+				assist_text_weight, 
+				use_assist_text, 
+				style, 
+				style_weight, 
+				tone, 
+				use_tone, 
+				speaker, 
+				pitch_scale, 
+				intonation_scale, 
 			],
-			outputs=[text_output, audio_output, tone],
+			outputs=[text_output, audio_output, tone], 
 		)
 
 		model_name.change(
-			model_holder.update_model_files_for_gradio,
-			inputs=[model_name],
-			outputs=[model_path],
+			model_holder.update_model_files_for_gradio, 
+			inputs=[model_name], 
+			outputs=[model_path], 
 		)
 
 		model_path.change(make_non_interactive, outputs=[tts_button])
 
 		refresh_button.click(
-			model_holder.update_model_names_for_gradio,
-			outputs=[model_name, model_path, tts_button],
+			model_holder.update_model_names_for_gradio, 
+			outputs=[model_name, model_path, tts_button], 
 		)
 
 		load_button.click(
-			model_holder.get_model_for_gradio,
-			inputs=[model_name, model_path],
-			outputs=[style, tts_button, speaker],
+			model_holder.get_model_for_gradio, 
+			inputs=[model_name, model_path], 
+			outputs=[style, tts_button, speaker], 
 		)
 
 		style_mode.change(
-			gr_util,
-			inputs=[style_mode],
-			outputs=[style, ref_audio_path],
+			gr_util, 
+			inputs=[style_mode], 
+			outputs=[style, ref_audio_path], 
 		)
 
 	return app
-
 
 # ============================================================================ #
 #                                [ メイン関数 ]                                #
@@ -532,9 +520,6 @@ def main(config):
 	global conf
 	conf = config
 
-	#app = create_interface()
-	#app.launch(inbrowser=True)
-
 if __name__ == "__main__":
 
 	# コンフィグファイルを読み込む
@@ -542,17 +527,3 @@ if __name__ == "__main__":
 		config = json.load(f)
 
 	main(config)
-
-
-'''
-if __name__ == "__main__":
-	from config import get_path_config
-	import torch
-
-	path_config = get_path_config()
-	assets_root = path_config.assets_root
-	device = "cuda" if torch.cuda.is_available() else "cpu"
-	model_holder = TTSModelHolder(assets_root, device)
-	app = create_inference_app(model_holder)
-	app.launch(inbrowser=True)
-'''
