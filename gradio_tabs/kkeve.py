@@ -208,7 +208,7 @@ def change_model_language(id, name, description):
 
 def change_language(language, list_model_dropdown, list_character_dropdown, character_dropdown, category_dropdown):
 
-	print(language)
+	#print(language)
 
 	global kk_path, kks_path, kkp_path
 	global conf
@@ -245,7 +245,7 @@ def change_language(language, list_model_dropdown, list_character_dropdown, char
 			components.append(gr.update())
 		return components
 	else: 
-		update_cache("inference", "language_kkeve", language)
+		update_cache("kkeve", "language_kkeve", language)
 		conf['language_kkeve'] = language
 
 	# データベース変更
@@ -279,44 +279,44 @@ def change_language(language, list_model_dropdown, list_character_dropdown, char
 	# ドロップダウン取得
 	list_model_options, list_character_options, character_options, category_options = get_dropdown_options()
 
-	game_options = [(get_message('inference', 'radio_target_path', conf['language']), "0")]
+	game_options = [(get_message('kkeve', 'radio_target_path', conf['language']), "0")]
 	if kk_path is not None:
-		game_options.append((get_message('inference', 'radio_target_koikatu', conf['language']), "1"))
+		game_options.append((get_message('kkeve', 'radio_target_koikatu', conf['language']), "1"))
 	if kks_path is not None:
-		game_options.append((get_message('inference', 'radio_target_koikatsu_sunshine', conf['language']), "2"))
+		game_options.append((get_message('kkeve', 'radio_target_koikatsu_sunshine', conf['language']), "2"))
 	if kkp_path is not None:
-		game_options.append((get_message('inference', 'radio_target_koikatsu_party', conf['language']), "3"))
+		game_options.append((get_message('kkeve', 'radio_target_koikatsu_party', conf['language']), "3"))
 
 	components = [
-		#gr.update(value=f"# {get_message('inference', 'label_title', conf['language'])}"), 
-		gr.update(label=get_message('inference', 'label_model', conf['language']), choices=list_model_options, value=list_model_dropdown), 
-		gr.update(label=get_message('inference', 'label_character', conf['language']), choices=list_character_options, value=list_character_dropdown), 
-		gr.update(value=get_message('inference', 'button_reload', conf['language'])), 
-		gr.update(value=get_records(), label=get_message('inference', 'label_voice_list', conf['language'])), 
-		gr.update(value=f"## {get_message('inference', 'label_edit', conf['language'])}"), 
-		gr.update(value=get_message('inference', 'button_add', conf['language'])), 
-		gr.update(value=get_message('inference', 'button_change', conf['language'])), 
-		gr.update(value=get_message('inference', 'button_delete', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_model_not_editable', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_id_not_editable', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_character', conf['language']), choices=character_options, value=character_dropdown), 
-		gr.update(label=get_message('inference', 'label_category', conf['language']), choices=category_options, value=category_dropdown), 
-		gr.update(label=get_message('inference', 'label_lines', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_path', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_filename', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_output_path', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_output_destination', conf['language']), choices=game_options), 
-		gr.update(value=get_message('inference', 'button_output_start', conf['language'])), 
-		gr.update(label=get_message('inference', 'label_message', conf['language']))
+		#gr.update(value=f"# {get_message('kkeve', 'label_title', conf['language'])}"), 
+		gr.update(label=get_message('kkeve', 'label_model', conf['language']), choices=list_model_options, value=list_model_dropdown), 
+		gr.update(label=get_message('kkeve', 'label_character', conf['language']), choices=list_character_options, value=list_character_dropdown), 
+		gr.update(value=get_message('kkeve', 'button_reload', conf['language'])), 
+		gr.update(value=get_records(), label=get_message('kkeve', 'label_voice_list', conf['language'])), 
+		gr.update(value=f"## {get_message('kkeve', 'label_edit', conf['language'])}"), 
+		gr.update(value=get_message('kkeve', 'button_add', conf['language'])), 
+		gr.update(value=get_message('kkeve', 'button_change', conf['language'])), 
+		gr.update(value=get_message('kkeve', 'button_delete', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_model_not_editable', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_id_not_editable', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_character', conf['language']), choices=character_options, value=character_dropdown), 
+		gr.update(label=get_message('kkeve', 'label_category', conf['language']), choices=category_options, value=category_dropdown), 
+		gr.update(label=get_message('kkeve', 'label_lines', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_path', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_filename', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_output_path', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_output_destination', conf['language']), choices=game_options), 
+		gr.update(value=get_message('kkeve', 'button_output_start', conf['language'])), 
+		gr.update(label=get_message('kkeve', 'label_message', conf['language']))
 	]
 
 	# kk_button 系を条件付きで追加
 	if kk_path is not None:
-		components.append(gr.update(value=get_message('inference', 'button_start_koikatu', conf['language'])))
+		components.append(gr.update(value=get_message('kkeve', 'button_start_koikatu', conf['language'])))
 	if kks_path is not None:
-		components.append(gr.update(value=get_message('inference', 'button_start_koikatsu_sunshine', conf['language'])))
+		components.append(gr.update(value=get_message('kkeve', 'button_start_koikatsu_sunshine', conf['language'])))
 	if kkp_path is not None:
-		components.append(gr.update(value=get_message('inference', 'button_start_koikatsu_party', conf['language'])))
+		components.append(gr.update(value=get_message('kkeve', 'button_start_koikatsu_party', conf['language'])))
 
 	return tuple(components)
 
@@ -376,7 +376,7 @@ def add_record(character, category, words, path, file):
 	global conf
 	if not words:
 		return (
-			get_message('inference', 'message_error_words', conf['language']), 
+			get_message('kkeve', 'message_error_words', conf['language']), 
 			get_records(), 
 			None, 
 			gr.update(interactive=False),
@@ -386,7 +386,7 @@ def add_record(character, category, words, path, file):
 		)
 	elif not path:
 		return (
-			get_message('inference', 'message_error_path', conf['language']), 
+			get_message('kkeve', 'message_error_path', conf['language']), 
 			get_records(), 
 			None, 
 			gr.update(interactive=False),
@@ -396,7 +396,7 @@ def add_record(character, category, words, path, file):
 		)
 	elif not file:
 		return (
-			get_message('inference', 'message_error_file', conf['language']), 
+			get_message('kkeve', 'message_error_file', conf['language']), 
 			get_records(), 
 			None, 
 			gr.update(interactive=False),
@@ -417,7 +417,7 @@ def add_record(character, category, words, path, file):
 		conn.commit()
 		conn.close()
 		return (
-			get_message('inference', 'message_success_add', conf['language']), 
+			get_message('kkeve', 'message_success_add', conf['language']), 
 			get_records(), 
 			new_id, 
 			*update_move_button(new_id)
@@ -425,7 +425,7 @@ def add_record(character, category, words, path, file):
 
 	except Exception as e:
 		return (
-			get_message('inference', 'message_error', conf['language'], error=str(e)), 
+			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			new_id, 
 			*update_move_button(new_id)
@@ -437,19 +437,19 @@ def update_record(id, character, category, words, path, file):
 
 	if not words:
 		return (
-			get_message('inference', 'message_error_words', conf['language']), 
+			get_message('kkeve', 'message_error_words', conf['language']), 
 			get_records(), 
 			*update_move_button(id)
 		)
 	elif not path:
 		return (
-			get_message('inference', 'message_error_path', conf['language']), 
+			get_message('kkeve', 'message_error_path', conf['language']), 
 			get_records(), 
 			*update_move_button(id)
 		)
 	elif not file:
 		return (
-			get_message('inference', 'message_error_file', conf['language']), 
+			get_message('kkeve', 'message_error_file', conf['language']), 
 			get_records(), 
 			*update_move_button(id)
 		)
@@ -464,14 +464,14 @@ def update_record(id, character, category, words, path, file):
 		conn.commit()
 		conn.close()
 		return (
-			get_message('inference', 'message_success_change', conf['language']), 
+			get_message('kkeve', 'message_success_change', conf['language']), 
 			get_records(), 
 			*update_move_button(id)
 		)
 
 	except Exception as e:
 		return (
-			get_message('inference', 'message_error', conf['language'], error=str(e)), 
+			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			*update_move_button(id)
 		)
@@ -482,7 +482,7 @@ def delete_record(id):
 
 	if not id:
 		return (
-			get_message('inference', 'message_error_id', conf['language']), 
+			get_message('kkeve', 'message_error_id', conf['language']), 
 			get_records(), 
 			*update_move_button(id), 
 			*get_record(id) 
@@ -494,7 +494,7 @@ def delete_record(id):
 		conn.commit()
 		conn.close()
 		return (
-			get_message('inference', 'message_success_delete', conf['language']), 
+			get_message('kkeve', 'message_success_delete', conf['language']), 
 			get_records(), 
 			gr.update(interactive=False),
 			gr.update(interactive=False),
@@ -505,7 +505,7 @@ def delete_record(id):
 
 	except Exception as e:
 		return (
-			get_message('inference', 'message_error', conf['language'], error=str(e)), 
+			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			*update_move_button(id), 
 			*get_record(id) 
@@ -614,12 +614,12 @@ def swap_sort_values(id1, id2):
 		cursor.execute(f"SELECT sort FROM {conf['tbl_voice']} WHERE id = ?", (id1,))
 		result1 = cursor.fetchone()
 		if result1 is None:
-			raise ValueError(get_message('inference', 'message_not_found_id', conf['language'], target=id1))
+			raise ValueError(get_message('kkeve', 'message_not_found_id', conf['language'], target=id1))
 
 		cursor.execute(f"SELECT sort FROM {conf['tbl_voice']} WHERE id = ?", (id2,))
 		result2 = cursor.fetchone()
 		if result2 is None:
-			raise ValueError(get_message('inference', 'message_not_found_id', conf['language'], target=id2))
+			raise ValueError(get_message('kkeve', 'message_not_found_id', conf['language'], target=id2))
 
 		sort1 = result1[0]
 		sort2 = result2[0]
@@ -634,7 +634,7 @@ def swap_sort_values(id1, id2):
 		# コミット
 		conn.commit()
 		return (
-			get_message('inference', 'message_success_move', conf['language']), 
+			get_message('kkeve', 'message_success_move', conf['language']), 
 			get_records(), 
 			*update_move_button(id1)
 		)
@@ -642,7 +642,7 @@ def swap_sort_values(id1, id2):
 	except Exception as e:
 		conn.rollback()
 		return (
-			get_message('inference', 'message_error', conf['language'], error=str(e)), 
+			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			*update_move_button(id1)
 		)
@@ -661,7 +661,7 @@ def move_sort_to_top(target_id):
 		cursor.execute("SELECT sort FROM voice WHERE id = ?", (target_id,))
 		result = cursor.fetchone()
 		if result is None:
-			raise ValueError(get_message('inference', 'message_not_found_id', conf['language'], target=target_id))
+			raise ValueError(get_message('kkeve', 'message_not_found_id', conf['language'], target=target_id))
 
 		original_sort = result[0]
 
@@ -680,7 +680,7 @@ def move_sort_to_top(target_id):
 
 		conn.commit()
 		return (
-			get_message('inference', 'message_success_move', conf['language']), 
+			get_message('kkeve', 'message_success_move', conf['language']), 
 			get_records(), 
 			*update_move_button(target_id)
 		)
@@ -688,7 +688,7 @@ def move_sort_to_top(target_id):
 	except Exception as e:
 		conn.rollback()
 		return (
-			get_message('inference', 'message_error', conf['language'], error=str(e)), 
+			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			*update_move_button(target_id)
 		)
@@ -706,7 +706,7 @@ def move_sort_to_bottom(target_id):
 		cursor.execute("SELECT sort FROM voice WHERE id = ?", (target_id,))
 		result = cursor.fetchone()
 		if result is None:
-			raise ValueError(get_message('inference', 'message_not_found_id', conf['language'], target=target_id))
+			raise ValueError(get_message('kkeve', 'message_not_found_id', conf['language'], target=target_id))
 		original_sort = result[0]
 
 		# 最大 sort を取得（対象レコードを除く）
@@ -729,14 +729,14 @@ def move_sort_to_bottom(target_id):
 
 		conn.commit()
 		return (
-			get_message('inference', 'message_success_move', conf['language']), 
+			get_message('kkeve', 'message_success_move', conf['language']), 
 			get_records(), 
 			*update_move_button(target_id)
 		)
 	except Exception as e:
 		conn.rollback()
 		return (
-			get_message('inference', 'message_error', conf['language'], error=str(e)), 
+			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			*update_move_button(target_id)
 		)
@@ -817,7 +817,7 @@ def kkp_run():
 def output_contents(output, game):
 
 	if output != "" and is_invalid_windows_path(output):
-		return (get_message('inference', 'message_invalid_output_path', conf['language'], output=output))
+		return (get_message('kkeve', 'message_invalid_output_path', conf['language'], output=output))
 
 	current_path = os.getcwd()
 
@@ -980,7 +980,7 @@ def output_contents(output, game):
 			shutil.copy(plugin_path, target_plugin_path)
 
 	conn.close()
-	return (get_message('inference', 'message_completed_output', conf['language']))
+	return (get_message('kkeve', 'message_completed_output', conf['language']))
 
 # ------------------------------------------------------------------------------
 # Gradioインターフェース
@@ -990,15 +990,15 @@ def create_interface(language_state) -> gr.Blocks:
 
 	'''
 	# 言語
-	conf['language'] = get_cache("inference", "language")
+	conf['language'] = get_cache("kkeve", "language")
 	if conf['language'] is None:
 		conf['language'] = locale.getdefaultlocale()[0][:2]
-		update_cache("inference", "language", conf['language'])
+		update_cache("kkeve", "language", conf['language'])
 	'''
 
 	# 言語
 	conf['language_kkeve'] = conf['language']
-	update_cache("inference", "language_kkeve", conf['language_kkeve'])
+	update_cache("kkeve", "language_kkeve", conf['language_kkeve'])
 
 	# 一覧フィルター
 	global df_model, df_character
@@ -1018,61 +1018,31 @@ def create_interface(language_state) -> gr.Blocks:
 	kkp_path = read_registry_value(winreg.HKEY_CURRENT_USER, conf['registry_kkp'], "INSTALLDIR")
 
 	global game_options
-	game_options = [(get_message('inference', 'radio_target_path', conf['language']), "0")]
+	game_options = [(get_message('kkeve', 'radio_target_path', conf['language']), "0")]
 	if kk_path is not None:
-		game_options.append((get_message('inference', 'radio_target_koikatu', conf['language']), "1"))
+		game_options.append((get_message('kkeve', 'radio_target_koikatu', conf['language']), "1"))
 	if kks_path is not None:
-		game_options.append((get_message('inference', 'radio_target_koikatsu_sunshine', conf['language']), "2"))
+		game_options.append((get_message('kkeve', 'radio_target_koikatsu_sunshine', conf['language']), "2"))
 	if kkp_path is not None:
-		game_options.append((get_message('inference', 'radio_target_koikatsu_party', conf['language']), "3"))
+		game_options.append((get_message('kkeve', 'radio_target_koikatsu_party', conf['language']), "3"))
 
 
 	# --------------------------------------------------------------------------
 	with gr.Blocks() as app:
 
-
-		'''
-		gr.HTML("""
-			<style>
-				#List {
-					.cell-selected>div>button {display:none;}
-					tr:has(td.cell-selected){background-color: var(--color-accent);}
-				}
-				#Model textarea:disabled, 
-				#Id textarea:disabled, 
-				#Output textarea:disabled{opacity: 0.3;}
-				.lang-row {
-					justify-content: space-between !important; /* 左右に分ける */
-					align-items: center;
-				}
-				#language_dropdown {width: 150px !important;}
-			</style>
-		""")
-		with gr.Row(elem_classes="lang-row"):
-			title_markdown = gr.Markdown(f"# {get_message('inference', 'label_title', conf['language'])}")
-
-			# 言語
-			language_dropdown = gr.Dropdown(
-				choices=[("日本語", "ja"), ("English", "en")], 
-				value=conf['language'], 
-				label="Language / 言語"
-			)
-		'''
-
-
 		# レコード一覧
 		with gr.Row():
-			list_model_dropdown      = gr.Dropdown(label=get_message('inference', 'label_model', conf['language']), choices=list_model_options, value=df_model, allow_custom_value=True)
-			list_character_dropdown  = gr.Dropdown(label=get_message('inference', 'label_character', conf['language']), choices=list_character_options, value=df_character, allow_custom_value=True)
+			list_model_dropdown      = gr.Dropdown(label=get_message('kkeve', 'label_model', conf['language']), choices=list_model_options, value=df_model, allow_custom_value=True)
+			list_character_dropdown  = gr.Dropdown(label=get_message('kkeve', 'label_character', conf['language']), choices=list_character_options, value=df_character, allow_custom_value=True)
 		with gr.Row():
-			df_reload_button = gr.Button(get_message('inference', 'button_reload', conf['language']))
+			df_reload_button = gr.Button(get_message('kkeve', 'button_reload', conf['language']))
 		with gr.Row():
-			df_output = gr.Dataframe(value=get_records, interactive=False, label=get_message('inference', 'label_voice_list', conf['language']), elem_id="List")
+			df_output = gr.Dataframe(value=get_records, interactive=False, label=get_message('kkeve', 'label_voice_list', conf['language']), elem_id="List")
 
 		# フォーム
 		with gr.Row():
 			with gr.Column():
-				edit_markdown = gr.Markdown(f"## {get_message('inference', 'label_edit', conf['language'])}")
+				edit_markdown = gr.Markdown(f"## {get_message('kkeve', 'label_edit', conf['language'])}")
 				with gr.Row():
 					first_button = gr.Button("△", elem_id="First")
 					prev_button  = gr.Button("▲", elem_id="Prev")
@@ -1080,41 +1050,41 @@ def create_interface(language_state) -> gr.Blocks:
 					last_button  = gr.Button("▽", elem_id="Last")
 
 				with gr.Row():
-					add_button    = gr.Button(get_message('inference', 'button_add', conf['language']))
-					update_button = gr.Button(get_message('inference', 'button_change', conf['language']))
-					delete_button = gr.Button(get_message('inference', 'button_delete', conf['language']))
+					add_button    = gr.Button(get_message('kkeve', 'button_add', conf['language']))
+					update_button = gr.Button(get_message('kkeve', 'button_change', conf['language']))
+					delete_button = gr.Button(get_message('kkeve', 'button_delete', conf['language']))
 
-				model_input = gr.Textbox(label=get_message('inference', 'label_model_not_editable', conf['language']), interactive=False, elem_id="Model", value=get_cache("list", "model_input"))
-				id_input    = gr.Textbox(label=get_message('inference', 'label_id_not_editable', conf['language']), interactive=False, elem_id="Id", value=get_cache("list", "id_input"))
-				character_dropdown = gr.Dropdown(label=get_message('inference', 'label_character', conf['language']), choices=character_options, value=get_cache("list", "character_dropdown"), allow_custom_value=True)
-				category_dropdown  = gr.Dropdown(label=get_message('inference', 'label_category', conf['language']), choices=category_options, value=get_cache("list", "category_dropdown"), allow_custom_value=True)
-				words_input = gr.Textbox(label=get_message('inference', 'label_lines', conf['language']), value=get_cache("list", "words_input"))
-				path_input  = gr.Textbox(label=get_message('inference', 'label_path', conf['language']), value=get_cache("list", "path_input"))
-				file_input  = gr.Textbox(label=get_message('inference', 'label_filename', conf['language']), value=get_cache("list", "file_input"))
+				model_input = gr.Textbox(label=get_message('kkeve', 'label_model_not_editable', conf['language']), interactive=False, elem_id="Model", value=get_cache("list", "model_input"))
+				id_input    = gr.Textbox(label=get_message('kkeve', 'label_id_not_editable', conf['language']), interactive=False, elem_id="Id", value=get_cache("list", "id_input"))
+				character_dropdown = gr.Dropdown(label=get_message('kkeve', 'label_character', conf['language']), choices=character_options, value=get_cache("list", "character_dropdown"), allow_custom_value=True)
+				category_dropdown  = gr.Dropdown(label=get_message('kkeve', 'label_category', conf['language']), choices=category_options, value=get_cache("list", "category_dropdown"), allow_custom_value=True)
+				words_input = gr.Textbox(label=get_message('kkeve', 'label_lines', conf['language']), value=get_cache("list", "words_input"))
+				path_input  = gr.Textbox(label=get_message('kkeve', 'label_path', conf['language']), value=get_cache("list", "path_input"))
+				file_input  = gr.Textbox(label=get_message('kkeve', 'label_filename', conf['language']), value=get_cache("list", "file_input"))
 				# gr.Audioのラベルは変更できない
-				#voice_player= gr.Audio(label=get_message('inference', 'label_voice', conf['language']), type="filepath", show_label=True, show_download_button=False, value=get_cache("list", "voice_player"))
+				#voice_player= gr.Audio(label=get_message('kkeve', 'label_voice', conf['language']), type="filepath", show_label=True, show_download_button=False, value=get_cache("list", "voice_player"))
 				voice_player= gr.Audio(label="Voice", type="filepath", show_label=True, value=get_cache("list", "voice_player"))
 
 		with gr.Row():
 			with gr.Column():
-				output_input = gr.Textbox(label=get_message('inference', 'label_output_path', conf['language']), elem_id="Output", value=get_output_value(), interactive=get_output_interactive())
+				output_input = gr.Textbox(label=get_message('kkeve', 'label_output_path', conf['language']), elem_id="Output", value=get_output_value(), interactive=get_output_interactive())
 				if len(game_options) > 1:
-					game_radio = gr.Radio(label=get_message('inference', 'label_output_destination', conf['language']), choices=game_options, value=get_cache("list", "game_radio"))
+					game_radio = gr.Radio(label=get_message('kkeve', 'label_output_destination', conf['language']), choices=game_options, value=get_cache("list", "game_radio"))
 				else:
-					game_radio = gr.Radio(label=get_message('inference', 'label_output_destination', conf['language']), choices=game_options, value="0", visible=False)
-				output_button = gr.Button(get_message('inference', 'button_output_start', conf['language']))
+					game_radio = gr.Radio(label=get_message('kkeve', 'label_output_destination', conf['language']), choices=game_options, value="0", visible=False)
+				output_button = gr.Button(get_message('kkeve', 'button_output_start', conf['language']))
 
 		# メッセージ表示
 		with gr.Row():
-			message = gr.Textbox(label=get_message('inference', 'label_message', conf['language']), interactive=False)
+			message = gr.Textbox(label=get_message('kkeve', 'label_message', conf['language']), interactive=False)
 
 		with gr.Row():
 			if kk_path is not None:
-				kk_button = gr.Button(get_message('inference', 'button_start_koikatu', conf['language']))
+				kk_button = gr.Button(get_message('kkeve', 'button_start_koikatu', conf['language']))
 			if kks_path is not None:
-				kks_button = gr.Button(get_message('inference', 'button_start_koikatsu_sunshine', conf['language']))
+				kks_button = gr.Button(get_message('kkeve', 'button_start_koikatsu_sunshine', conf['language']))
 			if kkp_path is not None:
-				kkp_button = gr.Button(get_message('inference', 'button_start_koikatsu_party', conf['language']))
+				kkp_button = gr.Button(get_message('kkeve', 'button_start_koikatsu_party', conf['language']))
 
 		# ----------------------------------------------------------------------
 		# イベントハンドラ

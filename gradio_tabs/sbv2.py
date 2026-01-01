@@ -151,6 +151,146 @@ def get_messages(target, cd):
 	conn.close()
 	return df
 
+# ------------------------------------------------------------------------------
+# 言語変更
+
+def change_language(language):
+
+	print(language)
+
+	global conf
+	if conf['language_sbv2'] == language: 
+		components = [
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update() 
+		]
+
+		return components
+	else: 
+		update_cache("sbv2", "language_sbv2", language)
+		conf['language_sbv2'] = language
+
+	components = [
+		gr.update(label=get_message('sbv2', 'label_model_list', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_pth_files', conf['language'])), 
+		gr.update(value=get_message('sbv2', 'button_update', conf['language'])), 
+		gr.update(value=get_message('sbv2', 'button_load', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_text', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_pitch_scale', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_intonation_scale', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'checkbox_line_split', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_split_interval', conf['language'])), 
+		gr.update(
+			label=get_message('sbv2', 'label_tone', conf['language']), 
+			info=get_message('sbv2', 'label_tone_info', conf['language'])
+		), 
+		gr.update(label=get_message('sbv2', 'checkbox_use_tone', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_bert_language', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_speaker', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_advanced_settings', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_sdp_ratio', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_noise_scale', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_noise_scale_w', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_length_scale', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'checkbox_use_assist_text', conf['language'])), 
+		gr.update(
+			label=get_message('sbv2', 'label_assist_text', conf['language']),
+			placeholder=get_message('sbv2', 'label_assist_text_placeholder', conf['language']),
+			info=get_message('sbv2', 'label_assist_text_info', conf['language'])
+		), 
+		gr.update(label=get_message('sbv2', 'label_assist_text_weight', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_style_mode', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_style', conf['language'], default_style=DEFAULT_STYLE)), 
+		gr.update(label=get_message('sbv2', 'label_style_weight', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_ref_audio_path', conf['language'])), 
+		gr.update(value=get_message('sbv2', 'button_tts', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_message', conf['language'])) 
+	]
+	return tuple(components)
+
+# ------------------------------------------------------------------------------
+# フィールド変更
+def update_text(text):
+	update_cache("sbv2", "text", text)
+
+def update_pitch_scale(pitch_scale):
+	update_cache("sbv2", "pitch_scale", pitch_scale)
+
+def update_intonation_scale(intonation_scale):
+	update_cache("sbv2", "intonation_scale", intonation_scale)
+
+def update_line_split(line_split):
+	update_cache("sbv2", "line_split", line_split)
+
+def update_split_interval(split_interval):
+	update_cache("sbv2", "split_interval", split_interval)
+
+def update_tone(tone):
+	update_cache("sbv2", "tone", tone)
+
+def update_language(language):
+	update_cache("sbv2", "language", language)
+
+def update_speaker(speaker):
+	update_cache("sbv2", "speaker", speaker)
+
+def update_sdp_ratio(sdp_ratio):
+	update_cache("sbv2", "sdp_ratio", sdp_ratio)
+
+def update_noise_scale(noise_scale):
+	update_cache("sbv2", "noise_scale", noise_scale)
+
+def update_noise_scale_w(noise_scale_w):
+	update_cache("sbv2", "noise_scale_w", noise_scale_w)
+
+def update_length_scale(length_scale):
+	update_cache("sbv2", "length_scale", length_scale)
+
+def update_use_assist_text(use_assist_text):
+	update_cache("sbv2", "use_assist_text", use_assist_text)
+
+def update_assist_text(assist_text):
+	update_cache("sbv2", "assist_text", assist_text)
+
+def update_assist_text_weight(assist_text_weight):
+	update_cache("sbv2", "assist_text_weight", assist_text_weight)
+
+def update_style_mode(style_mode):
+	update_cache("sbv2", "style_mode", style_mode)
+
+def update_style(style):
+	update_cache("sbv2", "style", style)
+
+def update_style_weight(style_weight):
+	update_cache("sbv2", "style_weight", style_weight)
+
+def update_ref_audio_path(ref_audio_path):
+	update_cache("sbv2", "ref_audio_path", ref_audio_path)
 
 # ------------------------------------------------------------------------------
 # モデルファイル有効化切替
@@ -176,6 +316,10 @@ def gr_util(item):
 def create_inference_app(language_state) -> gr.Blocks:
 
 	global conf
+
+	# 言語
+	conf['language_sbv2'] = conf['language']
+	update_cache("sbv2", "language_sbv2", conf['language_kkeve'])
 
 	import torch
 	from style_bert_vits2.constants import Languages
@@ -317,146 +461,234 @@ def create_inference_app(language_state) -> gr.Blocks:
 			with gr.Column():
 				with gr.Row():
 					with gr.Column(scale=3):
+
+						# モデル一覧
 						model_name = gr.Dropdown(
-							label="モデル一覧", 
+							label=get_message('sbv2', 'label_model_list', conf['language']), 
 							choices=model_names, 
 							value=model_names[initial_id], 
 						)
+
+						# モデルファイル
 						model_path = gr.Dropdown(
-							label="モデルファイル", 
+							label=get_message('sbv2', 'label_pth_files', conf['language']), 
 							choices=initial_pth_files, 
 							value=initial_pth_files[0], 
 						)
-					refresh_button = gr.Button("更新", scale=1, visible=True)
-					load_button = gr.Button("ロード", scale=1, variant="primary")
-				text_input = gr.TextArea(label="テキスト", value=initial_text)
+
+					# 更新
+					refresh_button = gr.Button(get_message('sbv2', 'button_update', conf['language']), scale=1, visible=True)
+
+					# ロード
+					load_button = gr.Button(get_message('sbv2', 'button_load', conf['language']), scale=1, variant="primary")
+
+				# テキスト
+				text_input = gr.TextArea(label=get_message('sbv2', 'label_text', conf['language']), value=initial_text)
+
+				# 音高(1以外では音質劣化)
 				pitch_scale = gr.Slider(
 					minimum=0.8, 
 					maximum=1.5, 
 					value=1, 
 					step=0.05, 
-					label="音高(1以外では音質劣化)", 
+					label=get_message('sbv2', 'label_pitch_scale', conf['language']), 
 				)
+
+				# 抑揚(1以外では音質劣化)
 				intonation_scale = gr.Slider(
 					minimum=0,
 					maximum=2,
 					value=1,
 					step=0.1,
-					label="抑揚(1以外では音質劣化)",
+					label=get_message('sbv2', 'label_intonation_scale', conf['language']),
 				)
 
+				# 改行で分けて生成（分けたほうが感情が乗ります）
 				line_split = gr.Checkbox(
-					label="改行で分けて生成（分けたほうが感情が乗ります）",
+					label=get_message('sbv2', 'checkbox_line_split', conf['language']),
 					value=DEFAULT_LINE_SPLIT,
 				)
+
+				# 改行ごとに挟む無音の長さ（秒）
 				split_interval = gr.Slider(
 					minimum=0.0,
 					maximum=2,
 					value=DEFAULT_SPLIT_INTERVAL,
 					step=0.1,
-					label="改行ごとに挟む無音の長さ（秒）",
+					label=get_message('sbv2', 'label_split_interval', conf['language']),
 				)
-				line_split.change(
-					lambda x: (gr.Slider(visible=x)),
-					inputs=[line_split],
-					outputs=[split_interval],
-				)
+
+				# アクセント調整（数値は 0=低 か1=高 のみ）
+				# 改行で分けない場合のみ使えます。万能ではありません。
 				tone = gr.Textbox(
-					label="アクセント調整（数値は 0=低 か1=高 のみ）",
-					info="改行で分けない場合のみ使えます。万能ではありません。",
+					label=get_message('sbv2', 'label_tone', conf['language']), 
+					info=get_message('sbv2', 'label_tone_info', conf['language']), 
 				)
-				use_tone = gr.Checkbox(label="アクセント調整を使う", value=False)
-				use_tone.change(
-					lambda x: (gr.Checkbox(value=False) if x else gr.Checkbox()),
-					inputs=[use_tone],
-					outputs=[line_split],
-				)
-				language = gr.Dropdown(choices=languages, value="JP", label="Language")
-				speaker = gr.Dropdown(label="話者")
-				with gr.Accordion(label="詳細設定", open=False):
+
+				# アクセント調整を使う
+				use_tone = gr.Checkbox(label=get_message('sbv2', 'checkbox_use_tone', conf['language']), value=False)
+
+				# Language
+				language = gr.Dropdown(choices=languages, value="JP", label=get_message('sbv2', 'label_bert_language', conf['language']))
+
+				# 話者
+				speaker = gr.Dropdown(label=get_message('sbv2', 'label_speaker', conf['language']))
+
+				# 詳細設定
+				accordion_advanced_settings = gr.Accordion(label=get_message('sbv2', 'label_advanced_settings', conf['language']), open=False)
+				with accordion_advanced_settings:
+
+					# SDP Ratio
 					sdp_ratio = gr.Slider(
 						minimum=0,
 						maximum=1,
 						value=DEFAULT_SDP_RATIO,
 						step=0.1,
-						label="SDP Ratio",
+						label=get_message('sbv2', 'label_sdp_ratio', conf['language']),
 					)
+
+					# Noise
 					noise_scale = gr.Slider(
 						minimum=0.1,
 						maximum=2,
 						value=DEFAULT_NOISE,
 						step=0.1,
-						label="Noise",
+						label=get_message('sbv2', 'label_noise_scale', conf['language']),
 					)
+
+					# Noise_W
 					noise_scale_w = gr.Slider(
 						minimum=0.1,
 						maximum=2,
 						value=DEFAULT_NOISEW,
 						step=0.1,
-						label="Noise_W",
+						label=get_message('sbv2', 'label_noise_scale_w', conf['language']),
 					)
+
+					# Length
 					length_scale = gr.Slider(
 						minimum=0.1,
 						maximum=2,
 						value=DEFAULT_LENGTH,
 						step=0.1,
-						label="Length",
+						label=get_message('sbv2', 'label_length_scale', conf['language']),
 					)
+
+					# Assist textを使う
 					use_assist_text = gr.Checkbox(
-						label="Assist textを使う", value=False
+						label=get_message('sbv2', 'checkbox_use_assist_text', conf['language']), value=False
 					)
+
+					# Assist text
+					# どうして私の意見を無視するの？許せない、ムカつく！死ねばいいのに。
+					# このテキストの読み上げと似た声音・感情になりやすくなります。ただ抑揚やテンポ等が犠牲になる傾向があります。
 					assist_text = gr.Textbox(
-						label="Assist text",
-						placeholder="どうして私の意見を無視するの？許せない、ムカつく！死ねばいいのに。",
-						info="このテキストの読み上げと似た声音・感情になりやすくなります。ただ抑揚やテンポ等が犠牲になる傾向があります。",
+						label=get_message('sbv2', 'label_assist_text', conf['language']),
+						placeholder=get_message('sbv2', 'label_assist_text_placeholder', conf['language']),
+						info=get_message('sbv2', 'label_assist_text_info', conf['language']),
 						visible=False,
 					)
+
+					# Assist textの強さ
 					assist_text_weight = gr.Slider(
 						minimum=0,
 						maximum=1,
 						value=DEFAULT_ASSIST_TEXT_WEIGHT,
 						step=0.1,
-						label="Assist textの強さ",
+						label=get_message('sbv2', 'label_assist_text_weight', conf['language']),
 						visible=False,
 					)
-					use_assist_text.change(
-						lambda x: (gr.Textbox(visible=x), gr.Slider(visible=x)),
-						inputs=[use_assist_text],
-						outputs=[assist_text, assist_text_weight],
-					)
+
+
 			with gr.Column():
+
+				# スタイルの指定方法
+				# プリセットから選ぶ
+				# ["プリセットから選ぶ", "音声ファイルを入力"]
 				style_mode = gr.Radio(
-					["プリセットから選ぶ", "音声ファイルを入力"],
-					label="スタイルの指定方法",
-					value="プリセットから選ぶ",
+					[get_message('sbv2', 'radio_preset', conf['language']), get_message('sbv2', 'radio_voice_file', conf['language'])],
+					label=get_message('sbv2', 'label_style_mode', conf['language']),
+					value=get_message('sbv2', 'radio_preset', conf['language']),
 				)
+
+				# スタイル（{DEFAULT_STYLE}が平均スタイル）
+				# モデルをロードしてください
+				# モデルをロードしてください
 				style = gr.Dropdown(
-					label=f"スタイル（{DEFAULT_STYLE}が平均スタイル）",
-					choices=["モデルをロードしてください"],
-					value="モデルをロードしてください",
+					label=get_message('sbv2', 'label_style', conf['language'], default_style=DEFAULT_STYLE),
+					choices=[get_message('sbv2', 'button_load_error', conf['language'])],
+					value=get_message('sbv2', 'button_load_error', conf['language']),
 				)
+
+				# スタイルの強さ（声が崩壊したら小さくしてください）
 				style_weight = gr.Slider(
 					minimum=0,
 					maximum=20,
 					value=DEFAULT_STYLE_WEIGHT,
 					step=0.1,
-					label="スタイルの強さ（声が崩壊したら小さくしてください）",
+					label=get_message('sbv2', 'label_style_weight', conf['language']),
 				)
+
+				# 参照音声
 				ref_audio_path = gr.Audio(
-					label="参照音声", type="filepath", visible=False
+					label=get_message('sbv2', 'label_ref_audio_path', conf['language']), type="filepath", visible=False
 				)
+
+				# 音声合成（モデルをロードしてください）
 				tts_button = gr.Button(
-					"音声合成（モデルをロードしてください）",
+					get_message('sbv2', 'button_tts', conf['language']),
 					variant="primary",
 					interactive=False,
 				)
-				text_output = gr.Textbox(label="情報")
-				audio_output = gr.Audio(label="結果")
+
+				# 情報
+				text_output = gr.Textbox(label=get_message('sbv2', 'label_message', conf['language']))
+
+				# 結果
+				audio_output = gr.Audio(label=get_message('sbv2', 'label_voice', conf['language']))
+
+
 				with gr.Accordion("テキスト例", open=False):
 					gr.Examples(examples, inputs=[text_input, language])
 
 		# ----------------------------------------------------------------------
 		# イベントハンドラ
+
+		outputs=[
+			model_name, 
+			model_path, 
+			refresh_button, 
+			load_button, 
+			text_input, 
+			pitch_scale, 
+			intonation_scale, 
+			line_split, 
+			split_interval, 
+			tone, 
+			use_tone, 
+			language, 
+			speaker, 
+			accordion_advanced_settings, 
+			sdp_ratio, 
+			noise_scale, 
+			noise_scale_w, 
+			length_scale, 
+			use_assist_text, 
+			assist_text, 
+			assist_text_weight, 
+			style_mode, 
+			style, 
+			style_weight, 
+			ref_audio_path, 
+			tts_button, 
+			text_output 
+		]
+
+		language_state.change(
+			fn=change_language,
+			inputs=[language_state], 
+			outputs=outputs
+		)
 
 		tts_button.click(
 			tts_fn, 
@@ -510,6 +742,54 @@ def create_inference_app(language_state) -> gr.Blocks:
 			inputs=[style_mode], 
 			outputs=[style, ref_audio_path], 
 		)
+
+		text_input.change(fn=update_text, inputs=text_input)
+		pitch_scale.change(fn=update_pitch_scale, inputs=pitch_scale)
+		intonation_scale.change(fn=update_intonation_scale, inputs=intonation_scale)
+
+
+		#line_split.change(fn=update_line_split, inputs=line_split)
+		line_split.change(
+			lambda x: (gr.Slider(visible=x)),
+			inputs=[line_split],
+			outputs=[split_interval],
+		)
+
+		split_interval.change(fn=update_split_interval, inputs=split_interval)
+
+		tone.change(fn=update_tone, inputs=tone)
+
+		use_tone.change(
+			lambda x: (gr.Checkbox(value=False) if x else gr.Checkbox()),
+			inputs=[use_tone],
+			outputs=[line_split],
+		)
+
+
+		language.change(fn=update_language, inputs=language)
+		speaker.change(fn=update_speaker, inputs=speaker)
+		sdp_ratio.change(fn=update_sdp_ratio, inputs=sdp_ratio)
+		noise_scale.change(fn=update_noise_scale, inputs=noise_scale)
+		noise_scale_w.change(fn=update_noise_scale_w, inputs=noise_scale_w)
+		length_scale.change(fn=update_length_scale, inputs=length_scale)
+
+		#use_assist_text.change(fn=update_use_assist_text, inputs=use_assist_text)
+		use_assist_text.change(
+			lambda x: (gr.Textbox(visible=x), gr.Slider(visible=x)),
+			inputs=[use_assist_text],
+			outputs=[assist_text, assist_text_weight],
+		)
+
+		assist_text.change(fn=update_assist_text, inputs=assist_text)
+		assist_text_weight.change(fn=update_assist_text_weight, inputs=assist_text_weight)
+		style_mode.change(fn=update_style_mode, inputs=style_mode)
+		style.change(fn=update_style, inputs=style)
+		style_weight.change(fn=update_style_weight, inputs=style_weight)
+		ref_audio_path.change(fn=update_ref_audio_path, inputs=ref_audio_path)
+
+
+
+
 
 	return app
 

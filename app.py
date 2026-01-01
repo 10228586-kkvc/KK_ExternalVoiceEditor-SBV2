@@ -200,20 +200,20 @@ def change_language(language):
 		)
 
 	# 言語更新
-	update_cache("inference", "language", language)
+	update_cache("kkeve", "language", language)
 	conf['language'] = language
 
 	# タイトルの更新
 	results = [
 		conf['language'], 
-		gr.update(value=f"# {get_message('inference', 'label_title', conf['language'])}")
+		gr.update(value=f"# {get_message('kkeve', 'label_title', conf['language'])}")
 	]
 
 	# タブラベルの更新
 	for tab in conf["tab_list"]:
 		results.append(
-			#gr.TabItem.update(label=get_message('inference', tab, conf['language']))
-			gr.update(label=get_message('inference', tab, conf['language']))
+			#gr.TabItem.update(label=get_message('kkeve', tab, conf['language']))
+			gr.update(label=get_message('kkeve', tab, conf['language']))
 		)
 
 	return tuple(results)
@@ -226,10 +226,10 @@ def create_interface():
 	sbv2.main(conf)
 
 	# 言語
-	conf['language'] = get_cache("inference", "language")
+	conf['language'] = get_cache("kkeve", "language")
 	if conf['language'] is None:
 		conf['language'] = locale.getdefaultlocale()[0][:2]
-		update_cache("inference", "language", conf['language'])
+		update_cache("kkeve", "language", conf['language'])
 
 
 
@@ -256,7 +256,7 @@ def create_interface():
 			</style>
 		""")
 		with gr.Row(elem_classes="lang-row"):
-			title_markdown = gr.Markdown(f"# {get_message('inference', 'label_title', conf['language'])}")
+			title_markdown = gr.Markdown(f"# {get_message('kkeve', 'label_title', conf['language'])}")
 
 			# 言語
 			language_dropdown = gr.Dropdown(
@@ -269,39 +269,14 @@ def create_interface():
 		with gr.Tabs():
 			# conf["tab_list"]作成するタブリスト
 			for tab in conf["tab_list"]:
-				# get_message('inference', tab, conf['language'])の名前でタブ作成
-				with gr.TabItem(get_message('inference', tab, conf['language'])) as t:
+				# get_message('kkeve', tab, conf['language'])の名前でタブ作成
+				with gr.TabItem(get_message('kkeve', tab, conf['language'])) as t:
 
 					# conf["tab_module"][tab]モジュール内のconf['tab_interface'][tab]関数実行（タブ内容出力）
 					getattr(conf["tab_module"][tab], conf['tab_interface'][tab])(language_state)
 
 				# タブの実態を格納
 				tabs[tab] = t
-
-		'''
-
-	config["tab_module"] = {
-		"kkeve": kkeve
-	}
-	"tab_list": ["kkeve"], 
-	"tab_interface": {"kkeve": "create_interface"}, 
-INSERT INTO 'language' VALUES ("inference", "kkeve", "ja", "コイカツ外部音声");
-INSERT INTO 'language' VALUES ("inference", "sbv2", "ja", "音声合成");
-INSERT INTO 'language' VALUES ("inference", "kkeve", "en", "Koikatsu External Voice");
-INSERT INTO 'language' VALUES ("inference", "sbv2", "en", "Text To Speech");
-
-		with gr.Tabs():
-			for tab in config["tab_list"]:
-				with gr.Tab(get_message('inference', tab, conf['language'])):
-
-		dispatcher = {
-		    "hello": hello,
-		    "bye": bye,
-		}
-
-		func_name = "hello"
-		dispatcher[func_name]()   # 実行
-		'''
 
 		# ----------------------------------------------------------------------
 		# イベントハンドラ
