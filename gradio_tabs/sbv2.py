@@ -439,8 +439,34 @@ def create_inference_app(language_state) -> gr.Blocks:
 			message = wrong_tone_message + "\n" + message
 		return message, (sr, audio), kata_tone_json_str
 
+	model_names = []
+	for model_name in model_holder.model_names: 
+
+		dir_path = os.path.join(conf['assets_root'], model_name)
+		config_path = os.path.join(dir_path, "config.json")
+
+		try:
+			with open(config_path, "r", encoding="utf-8") as f:
+				config = json.load(f)
+
+			model_id    = config.get("id")
+			sort        = config.get("sort")
+			description = config.get("description")
+			character   = config.get("character")
+
+			if model_id is None:
+				print(f"id が config.json に存在しません: {config_path}")
+				continue
+
+			model_names.append((f"{model_name}({description})", model_name))
+
+		except Exception as e:
+			print(f"エラー発生 ({config_path}): {e}")
+
+
+
 	# 音声合成モデルチェック
-	model_names = model_holder.model_names
+	#model_names = model_holder.model_names
 	if len(model_names) == 0:
 		logger.error(
 			f"モデルが見つかりませんでした。{model_holder.root_dir}にモデルを置いてください。"
@@ -452,7 +478,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 		return app
 	initial_id = 0
 	initial_pth_files = [
-		str(f) for f in model_holder.model_files_dict[model_names[initial_id]]
+		str(f) for f in model_holder.model_files_dict[model_names[initial_id][1]]
 	]
 
 	# --------------------------------------------------------------------------
