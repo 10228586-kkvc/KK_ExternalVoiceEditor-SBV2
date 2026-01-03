@@ -235,6 +235,11 @@ def change_language(language):
 
 # ------------------------------------------------------------------------------
 # フィールド変更
+def update_model_name(model_name):
+	global model_holder
+	update_cache("sbv2", "model_name", model_name)
+	return model_holder.update_model_files_for_gradio(model_name)
+
 def update_text(text):
 	update_cache("sbv2", "text", text)
 
@@ -329,6 +334,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 	bert_models.load_model(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm")
 	bert_models.load_tokenizer(Languages.JP, "ku-nlp/deberta-v2-large-japanese-char-wwm")
 
+	global model_holder
 	device = "cuda" if torch.cuda.is_available() else "cpu"
 	model_holder = TTSModelHolder(Path(conf['assets_root']), device)
 
@@ -745,7 +751,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 		)
 
 		model_name.change(
-			model_holder.update_model_files_for_gradio, 
+			#model_holder.update_model_files_for_gradio, 
+			fn=update_model_name, 
 			inputs=[model_name], 
 			outputs=[model_path], 
 		)
