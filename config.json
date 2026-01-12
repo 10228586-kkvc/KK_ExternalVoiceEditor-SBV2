@@ -1,4 +1,5 @@
 {
+	"model_check": true, 
 	"model_repository": "kkvc-hf/style-bert-vits2-ja-models", 
 	"model_target": ["config.json", "model.safetensors", "style_vectors.npy"], 
 	"assets_root": "model_assets", 

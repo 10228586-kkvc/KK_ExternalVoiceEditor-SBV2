@@ -21,7 +21,8 @@ import subprocess
 import shutil
 from pathlib import Path
 import importlib
-from huggingface_hub import list_repo_files, hf_hub_download, snapshot_download
+from huggingface_hub import HfApi, list_repo_files, hf_hub_download, snapshot_download
+from huggingface_hub.utils import HfHubHTTPError, RepositoryNotFoundError, RevisionNotFoundError
 import gradio_tabs.kkeve as kkeve
 import gradio_tabs.sbv2 as sbv2
 # ==============================================================================
@@ -29,7 +30,24 @@ import gradio_tabs.sbv2 as sbv2
 # ============================================================================ #
 #                          [ モデルダウンロード関数 ]                          #
 # ============================================================================ #
+# リポジトリのcommit hash（SHA）を取得
+api = HfApi()
+def get_repository_sha(repo_id, repo_type="model"):
+	try:
+		info = api.repo_info(repo_id=repo_id, repo_type=repo_type)
+		return info.sha
+	except (
+		HfHubHTTPError,
+		RepositoryNotFoundError,
+		RevisionNotFoundError,
+		ConnectionError,
+		TimeoutError,
+	) as e:
+		# 接続不可・存在しない・一時的エラー → スキップ
+		print(f"[SKIP] {repo_id}: {e}")
+		return None
 
+# ------------------------------------------------------------------------------
 # モデルダウンロード
 def download_all_files(repo_id: str, local_dir: str, revision: str = "main"):
 
@@ -253,6 +271,12 @@ def create_interface():
 					align-items: center;
 				}
 				#language_dropdown {width: 150px !important;}
+				.no-border,
+				.no-border * {
+					border: none !important;
+					outline: none !important;
+					box-shadow: none !important;
+				}
 			</style>
 		""")
 		with gr.Row(elem_classes="lang-row"):
@@ -303,14 +327,26 @@ def main(config):
 	conf = config
 
 	# --------------------------------------------------------------------------
-	# モデルダウンロード
-	download_all_files(repo_id=conf['model_repository'], local_dir=conf['assets_root'])
+	# 前回のリポジトリハッシュ取得
+	conf['repository_sha'] = get_cache("sbv2", "repository_sha")
 
-	# データベースのmodelテーブルに登録が無ければ追加
-	process_directory(conf['assets_root'], conf['db_path'])
+	# 現在のリポジトリハッシュ取得
+	sha = get_repository_sha(conf['model_repository'])
 
-	# データベースのmodelテーブルにしかないレコードを削除
-	delete_nonexistent_dirs(conf['assets_root'], conf['db_path'])
+	# リポジトリの変更を検知したらモデルチェック
+	if sha is not None and sha != conf['repository_sha']:
+
+		# モデルダウンロード
+		download_all_files(repo_id=conf['model_repository'], local_dir=conf['assets_root'])
+
+		# データベースのmodelテーブルに登録が無ければ追加
+		process_directory(conf['assets_root'], conf['db_path'])
+
+		# データベースのmodelテーブルにしかないレコードを削除
+		delete_nonexistent_dirs(conf['assets_root'], conf['db_path'])
+
+		# リポジトリハッシュ保存
+		update_cache("sbv2", "repository_sha", sha)
 
 	# --------------------------------------------------------------------------
 	app = create_interface()

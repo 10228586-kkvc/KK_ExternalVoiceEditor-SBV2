@@ -525,38 +525,38 @@ def select_record(evt: gr.SelectData):
 # ------------------------------------------------------------------------------
 # フィールド変更
 def update_list_model(model):
-	update_cache("list", "list_model_dropdown", model)
+	update_cache("kkeve", "list_model_dropdown", model)
 	global df_model
 	df_model = model
 
 def update_list_character(character):
-	update_cache("list", "list_character_dropdown", character)
+	update_cache("kkeve", "list_character_dropdown", character)
 	global df_character
 	df_character = character
 
 def update_model(model):
-	update_cache("list", "model_input", model)
+	update_cache("kkeve", "model_input", model)
 
 def update_id(id):
-	update_cache("list", "id_input", id)
+	update_cache("kkeve", "id_input", id)
 
 def update_character(character):
-	update_cache("list", "character_dropdown", character)
+	update_cache("kkeve", "character_dropdown", character)
 
 def update_category(category):
-	update_cache("list", "category_dropdown", category)
+	update_cache("kkeve", "category_dropdown", category)
 
 def update_words(words):
-	update_cache("list", "words_input", words)
+	update_cache("kkeve", "words_input", words)
 
 def update_path(path):
-	update_cache("list", "path_input", path)
+	update_cache("kkeve", "path_input", path)
 
 def update_file(file):
-	update_cache("list", "file_input", file)
+	update_cache("kkeve", "file_input", file)
 
 def update_voice(voice):
-	update_cache("list", "voice_player", voice)
+	update_cache("kkeve", "voice_player", voice)
 
 def update_path_file(path, file):
 	update_path(path)
@@ -756,14 +756,14 @@ def read_registry_value(root, path, name):
 
 def get_output_value():
 	global kk_path, kks_path
-	game = get_cache("list", "game_radio")
+	game = get_cache("kkeve", "game_radio")
 
 	# キャッシュの出力先がアンインストールして無くなっていた場合
 	if (game == "1" and kk_path is None) or (game == "2" and kks_path is None):
 		game = "0"
 
 	if game == "0":
-		return get_cache("list", "output_input")
+		return get_cache("kkeve", "output_input")
 	elif game == "1":
 		return kk_path
 	elif game == "2":
@@ -771,7 +771,7 @@ def get_output_value():
 
 def get_output_interactive():
 	global kk_path, kks_path
-	game = get_cache("list", "game_radio")
+	game = get_cache("kkeve", "game_radio")
 
 	# キャッシュの出力先がアンインストールして無くなっていた場合
 	if (game == "1" and kk_path is None) or (game == "2" and kks_path is None):
@@ -784,12 +784,12 @@ def get_output_interactive():
 
 def update_output(output, game):
 	if game == "0":
-		update_cache("list", "output_input", output)
+		update_cache("kkeve", "output_input", output)
 
 def select_game(game):
-	update_cache("list", "game_radio", game)
+	update_cache("kkeve", "game_radio", game)
 	if game == "0":
-		return gr.update(value=get_cache("list", "output_input"), interactive=True)
+		return gr.update(value=get_cache("kkeve", "output_input"), interactive=True)
 	elif game == "1":
 		return gr.update(value=kk_path, interactive=False)
 	elif game == "2":
@@ -1005,8 +1005,8 @@ def create_interface(language_state) -> gr.Blocks:
 	df_model     = None
 	df_character = None
 
-	df_model     = get_cache("list", "list_model_dropdown")
-	df_character = get_cache("list", "list_character_dropdown")
+	df_model     = get_cache("kkeve", "list_model_dropdown")
+	df_character = get_cache("kkeve", "list_character_dropdown")
 
 	# ドロップダウン取得
 	list_model_options, list_character_options, character_options, category_options = get_dropdown_options()
@@ -1054,22 +1054,22 @@ def create_interface(language_state) -> gr.Blocks:
 					update_button = gr.Button(get_message('kkeve', 'button_change', conf['language']))
 					delete_button = gr.Button(get_message('kkeve', 'button_delete', conf['language']))
 
-				model_input = gr.Textbox(label=get_message('kkeve', 'label_model_not_editable', conf['language']), interactive=False, elem_id="Model", value=get_cache("list", "model_input"))
-				id_input    = gr.Textbox(label=get_message('kkeve', 'label_id_not_editable', conf['language']), interactive=False, elem_id="Id", value=get_cache("list", "id_input"))
-				character_dropdown = gr.Dropdown(label=get_message('kkeve', 'label_character', conf['language']), choices=character_options, value=get_cache("list", "character_dropdown"), allow_custom_value=True)
-				category_dropdown  = gr.Dropdown(label=get_message('kkeve', 'label_category', conf['language']), choices=category_options, value=get_cache("list", "category_dropdown"), allow_custom_value=True)
-				words_input = gr.Textbox(label=get_message('kkeve', 'label_lines', conf['language']), value=get_cache("list", "words_input"))
-				path_input  = gr.Textbox(label=get_message('kkeve', 'label_path', conf['language']), value=get_cache("list", "path_input"))
-				file_input  = gr.Textbox(label=get_message('kkeve', 'label_filename', conf['language']), value=get_cache("list", "file_input"))
+				model_input = gr.Textbox(label=get_message('kkeve', 'label_model_not_editable', conf['language']), interactive=False, elem_id="Model", value=get_cache("kkeve", "model_input"))
+				id_input    = gr.Textbox(label=get_message('kkeve', 'label_id_not_editable', conf['language']), interactive=False, elem_id="Id", value=get_cache("kkeve", "id_input"))
+				character_dropdown = gr.Dropdown(label=get_message('kkeve', 'label_character', conf['language']), choices=character_options, value=get_cache("kkeve", "character_dropdown"), allow_custom_value=True)
+				category_dropdown  = gr.Dropdown(label=get_message('kkeve', 'label_category', conf['language']), choices=category_options, value=get_cache("kkeve", "category_dropdown"), allow_custom_value=True)
+				words_input = gr.Textbox(label=get_message('kkeve', 'label_lines', conf['language']), value=get_cache("kkeve", "words_input"))
+				path_input  = gr.Textbox(label=get_message('kkeve', 'label_path', conf['language']), value=get_cache("kkeve", "path_input"))
+				file_input  = gr.Textbox(label=get_message('kkeve', 'label_filename', conf['language']), value=get_cache("kkeve", "file_input"))
 				# gr.Audioのラベルは変更できない
-				#voice_player= gr.Audio(label=get_message('kkeve', 'label_voice', conf['language']), type="filepath", show_label=True, show_download_button=False, value=get_cache("list", "voice_player"))
-				voice_player= gr.Audio(label="Voice", type="filepath", show_label=True, value=get_cache("list", "voice_player"))
+				#voice_player= gr.Audio(label=get_message('kkeve', 'label_voice', conf['language']), type="filepath", show_label=True, show_download_button=False, value=get_cache("kkeve", "voice_player"))
+				voice_player= gr.Audio(label="Voice", type="filepath", show_label=True, value=get_cache("kkeve", "voice_player"))
 
 		with gr.Row():
 			with gr.Column():
 				output_input = gr.Textbox(label=get_message('kkeve', 'label_output_path', conf['language']), elem_id="Output", value=get_output_value(), interactive=get_output_interactive())
 				if len(game_options) > 1:
-					game_radio = gr.Radio(label=get_message('kkeve', 'label_output_destination', conf['language']), choices=game_options, value=get_cache("list", "game_radio"))
+					game_radio = gr.Radio(label=get_message('kkeve', 'label_output_destination', conf['language']), choices=game_options, value=get_cache("kkeve", "game_radio"))
 				else:
 					game_radio = gr.Radio(label=get_message('kkeve', 'label_output_destination', conf['language']), choices=game_options, value="0", visible=False)
 				output_button = gr.Button(get_message('kkeve', 'button_output_start', conf['language']))

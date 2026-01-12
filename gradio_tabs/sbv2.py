@@ -123,14 +123,14 @@ def get_cache(tab, field):
 # キャッシュ変更
 def update_cache(tab, field, value):
 	# JSON文字列化（日本語OK）
-	value_str = json.dumps(value, ensure_ascii=False)
+	#value_str = json.dumps(value, ensure_ascii=False)
 	# 文字列の両端のダブルクォートを削除
-	if isinstance(value, str):
-		value_str = value_str.strip('"')
+	#if isinstance(value, str):
+	#	value_str = value_str.strip('"')
 
 	conn = sqlite3.connect(conf['db_path'])
 	cursor = conn.cursor()
-	cursor.execute(f"UPDATE {conf['tbl_gradio']} SET value = ? WHERE tab = ? AND field = ?", (value_str, tab, field))
+	cursor.execute(f"UPDATE {conf['tbl_gradio']} SET value = ? WHERE tab = ? AND field = ?", (value, tab, field))
 	conn.commit()
 	conn.close()
 
@@ -150,6 +150,44 @@ def get_messages(target, cd):
 	df = pd.read_sql_query(f"SELECT id, value FROM language WHERE target = '{target}' AND cd = '{cd}'", conn)
 	conn.close()
 	return df
+
+# ------------------------------------------------------------------------------
+# 文字列カット
+def truncate_text(text: str, encoding: str = "utf-8", max_bytes: int = 80) -> str:
+	# 改行を削除
+	text = text.replace("\r", "").replace("\n", "")
+
+	encoded = text.encode(encoding)
+
+	# bytes以内ならそのまま返す
+	if len(encoded) <= max_bytes:
+		return text
+
+	# 「…」を付ける分のbyte数
+	ellipsis = "…"
+	ellipsis_bytes = ellipsis.encode(encoding)
+	limit = max_bytes - len(ellipsis_bytes)
+
+	# byte単位で切り詰め（文字途中で切れないように）
+	truncated_bytes = encoded[:limit]
+	truncated_text = truncated_bytes.decode(encoding, errors="ignore")
+
+	return truncated_text + ellipsis
+
+# ------------------------------------------------------------------------------
+# ランダム文字列生成
+def generate_random_id(length=8):
+	chars = string.ascii_letters + string.digits  # 英大文字・小文字 + 数字
+	return ''.join(random.choices(chars, k=length))
+
+# ------------------------------------------------------------------------------
+# ユニークなIDを生成
+def generate_unique_filename(output_path, model_name, character, audio_type, length=4):
+	while True:
+		new_id = generate_random_id(length)
+		filename = f"{model_name}-{character}-{new_id}.{audio_type}"
+		if not os.path.exists(os.path.join(output_path, filename)):
+			return filename
 
 # ------------------------------------------------------------------------------
 # 言語変更
@@ -240,6 +278,14 @@ def update_model_name(model_name):
 	update_cache("sbv2", "model_name", model_name)
 	return model_holder.update_model_files_for_gradio(model_name)
 
+def update_model_path(model_path):
+	update_cache("sbv2", "model_path", model_path)
+	return gr.update(interactive=False, value=get_message('sbv2', 'button_tts', conf['language']))
+
+def update_load_button(model_name, model_path):
+	global model_holder
+	return model_holder.get_model_for_gradio(model_name, model_path)
+
 def update_text(text):
 	update_cache("sbv2", "text", text)
 
@@ -249,14 +295,21 @@ def update_pitch_scale(pitch_scale):
 def update_intonation_scale(intonation_scale):
 	update_cache("sbv2", "intonation_scale", intonation_scale)
 
-def update_line_split(line_split):
+def update_line_split(line_split: bool):
 	update_cache("sbv2", "line_split", line_split)
+	return gr.Slider(visible=line_split)
 
 def update_split_interval(split_interval):
 	update_cache("sbv2", "split_interval", split_interval)
 
 def update_tone(tone):
 	update_cache("sbv2", "tone", tone)
+
+def update_use_tone(use_tone: bool):
+	update_cache("sbv2", "use_tone", use_tone)
+	if use_tone:
+		return gr.Checkbox(value=False)
+	return gr.Checkbox()
 
 def update_language(language):
 	update_cache("sbv2", "language", language)
@@ -297,6 +350,50 @@ def update_style_weight(style_weight):
 def update_ref_audio_path(ref_audio_path):
 	update_cache("sbv2", "ref_audio_path", ref_audio_path)
 
+def update_character_dropdown(model_name, character, audio_type):
+	update_cache("sbv2", "audio_type", audio_type)
+
+	output_path = "/".join([get_message('sbv2', 'default_path', conf['language']), model_name])
+
+	return gr.update(value=generate_unique_filename(output_path, model_name, character, audio_type))
+
+
+def update_audio_type(model_name, character, audio_type):
+	update_cache("sbv2", "audio_type", audio_type)
+
+	output_path = "/".join([get_message('sbv2', 'default_path', conf['language']), model_name])
+
+	return gr.update(value=generate_unique_filename(output_path, model_name, character, audio_type))
+
+
+
+# ------------------------------------------------------------------------------
+# ドロップダウン
+def get_dropdown_options():
+	with sqlite3.connect(conf['db_path']) as conn:
+		character_df = pd.read_sql_query(f"SELECT id, 'c' || id || ' ' || name AS view FROM {conf['tbl_character']}", conn)
+		category_df  = pd.read_sql_query(f"SELECT id, name FROM {conf['tbl_category']}",  conn)
+
+	character_options = [(row["view"], row["id"]) for _, row in character_df.iterrows()]
+	category_options  = [(row["name"], row["id"]) for _, row in category_df.iterrows()]
+	return character_options, category_options
+
+# ------------------------------------------------------------------------------
+# モデル初期化（強制ロード）
+def initialize_model(model_name, model_path): 
+	global model_holder
+
+	style, tts_button, speaker = model_holder.get_model_for_gradio(model_name, model_path)
+	style.value      = get_cache("sbv2", "style")
+	tts_button.value = get_cache("sbv2", "tts_button")
+	speaker.value    = get_cache("sbv2", "speaker")
+	#style   = gr.update(value=get_cache("sbv2", "style"))
+	#speaker = gr.update(value=get_cache("sbv2", "speaker"))
+
+	#print(type(style), type(tts_button), type(speaker))
+
+	return style, tts_button, speaker
+
 # ------------------------------------------------------------------------------
 # モデルファイル有効化切替
 def make_interactive():
@@ -310,7 +407,8 @@ def make_non_interactive():
 # ------------------------------------------------------------------------------
 # スタイルの指定方法切替
 def gr_util(item):
-	if item == "プリセットから選ぶ":
+	#if item == "プリセットから選ぶ":
+	if item == 0:
 		return (gr.update(visible=True), gr.Audio(visible=False, value=None))
 	else:
 		return (gr.update(visible=False), gr.update(visible=True))
@@ -360,6 +458,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 		speaker, 
 		pitch_scale, 
 		intonation_scale, 
+		audio_type, 
 	):
 		model_holder.get_model(model_name, model_path)
 		assert model_holder.current_model is not None
@@ -443,7 +542,38 @@ def create_inference_app(language_state) -> gr.Blocks:
 		message = f"Success, time: {duration} seconds."
 		if wrong_tone_message != "":
 			message = wrong_tone_message + "\n" + message
-		return message, (sr, audio), kata_tone_json_str
+
+		#output_path = os.path.join(get_message('sbv2', 'default_path', conf['language']), model_name)
+		output_path = "/".join([get_message('sbv2', 'default_path', conf['language']), model_name])
+
+		dir_path = os.path.join(conf['assets_root'], model_name)
+		config_path = os.path.join(dir_path, "config.json")
+
+		with open(config_path, "r", encoding="utf-8") as f:
+			config = json.load(f)
+		character = config.get("character")
+
+
+
+		#return message, (sr, audio), kata_tone_json_str
+
+		components = [
+			message, 
+			(sr, audio), 
+			kata_tone_json_str, 
+			gr.update(visible=True), 
+			gr.update(value=character), 
+			gr.update(value=truncate_text(text)), 
+			gr.update(value=output_path), 
+			gr.update(value=generate_unique_filename(output_path, model_name, character, audio_type)), 
+		]
+
+		return tuple(components)
+
+
+
+
+
 
 	model_names = []
 	for model_name in model_holder.model_names: 
@@ -482,10 +612,23 @@ def create_inference_app(language_state) -> gr.Blocks:
 				f"Error: モデルが見つかりませんでした。{model_holder.root_dir}にモデルを置いてください。"
 			)
 		return app
+
+	df_model_name = get_cache("sbv2", "model_name")
+	df_model_path = get_cache("sbv2", "model_path")
 	initial_id = 0
+	if df_model_name is None or not any(df_model_name == item[1] for item in model_names):
+		df_model_name = model_names[initial_id][1]
+
 	initial_pth_files = [
-		str(f) for f in model_holder.model_files_dict[model_names[initial_id][1]]
+		#str(f) for f in model_holder.model_files_dict[model_names[initial_id][1]]
+		str(f) for f in model_holder.model_files_dict[df_model_name]
 	]
+	if df_model_path is None or not df_model_path in initial_pth_files:
+		df_model_path = initial_pth_files[0]
+
+	df_speaker = get_cache("sbv2", "speaker")
+	df_style = get_cache("sbv2", "style")
+
 
 	# --------------------------------------------------------------------------
 	with gr.Blocks(theme=GRADIO_THEME) as app:
@@ -498,14 +641,16 @@ def create_inference_app(language_state) -> gr.Blocks:
 						model_name = gr.Dropdown(
 							label=get_message('sbv2', 'label_model_list', conf['language']), 
 							choices=model_names, 
-							value=model_names[initial_id], 
+							#value=model_names[initial_id], 
+							value=df_model_name
 						)
 
 						# モデルファイル
 						model_path = gr.Dropdown(
 							label=get_message('sbv2', 'label_pth_files', conf['language']), 
 							choices=initial_pth_files, 
-							value=initial_pth_files[0], 
+							#value=initial_pth_files[0], 
+							value=df_model_path 
 						)
 
 					# 更新
@@ -515,13 +660,17 @@ def create_inference_app(language_state) -> gr.Blocks:
 					load_button = gr.Button(get_message('sbv2', 'button_load', conf['language']), scale=1, variant="primary")
 
 				# テキスト
-				text_input = gr.TextArea(label=get_message('sbv2', 'label_text', conf['language']), value=initial_text)
+				text_input = gr.TextArea(
+					label=get_message('sbv2', 'label_text', conf['language']), 
+					#value=initial_text
+					value=get_cache("sbv2", "text")
+				)
 
 				# 音高(1以外では音質劣化)
 				pitch_scale = gr.Slider(
 					minimum=0.8, 
 					maximum=1.5, 
-					value=1, 
+					value=float(get_cache("sbv2", "pitch_scale")), 
 					step=0.05, 
 					label=get_message('sbv2', 'label_pitch_scale', conf['language']), 
 				)
@@ -530,7 +679,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 				intonation_scale = gr.Slider(
 					minimum=0,
 					maximum=2,
-					value=1,
+					value=float(get_cache("sbv2", "intonation_scale")), 
 					step=0.1,
 					label=get_message('sbv2', 'label_intonation_scale', conf['language']),
 				)
@@ -538,14 +687,17 @@ def create_inference_app(language_state) -> gr.Blocks:
 				# 改行で分けて生成（分けたほうが感情が乗ります）
 				line_split = gr.Checkbox(
 					label=get_message('sbv2', 'checkbox_line_split', conf['language']),
-					value=DEFAULT_LINE_SPLIT,
+					#value=DEFAULT_LINE_SPLIT,
+					value=bool(int(get_cache("sbv2", "line_split"))), 
 				)
 
 				# 改行ごとに挟む無音の長さ（秒）
 				split_interval = gr.Slider(
 					minimum=0.0,
 					maximum=2,
-					value=DEFAULT_SPLIT_INTERVAL,
+					#value=DEFAULT_SPLIT_INTERVAL,
+					value=float(get_cache("sbv2", "split_interval")), 
+					visible=bool(int(get_cache("sbv2", "line_split"))), 
 					step=0.1,
 					label=get_message('sbv2', 'label_split_interval', conf['language']),
 				)
@@ -555,19 +707,35 @@ def create_inference_app(language_state) -> gr.Blocks:
 				tone = gr.Textbox(
 					label=get_message('sbv2', 'label_tone', conf['language']), 
 					info=get_message('sbv2', 'label_tone_info', conf['language']), 
+					value=get_cache("sbv2", "tone"), 
 				)
 
 				# アクセント調整を使う
-				use_tone = gr.Checkbox(label=get_message('sbv2', 'checkbox_use_tone', conf['language']), value=False)
+				use_tone = gr.Checkbox(
+					label=get_message('sbv2', 'checkbox_use_tone', conf['language']), 
+					#value=False
+					value=bool(int(get_cache("sbv2", "use_tone"))), 
+				)
 
 				# Language
-				language = gr.Dropdown(choices=languages, value="JP", label=get_message('sbv2', 'label_bert_language', conf['language']))
+				language = gr.Dropdown(
+					choices=languages, 
+					#value="JP", 
+					value=get_cache("sbv2", "language"), 
+					label=get_message('sbv2', 'label_bert_language', conf['language'])
+				)
 
 				# 話者
-				speaker = gr.Dropdown(label=get_message('sbv2', 'label_speaker', conf['language']))
+				speaker = gr.Dropdown(
+					label=get_message('sbv2', 'label_speaker', conf['language']),
+					#value=get_cache("sbv2", "speaker"), 
+				)
 
 				# 詳細設定
-				accordion_advanced_settings = gr.Accordion(label=get_message('sbv2', 'label_advanced_settings', conf['language']), open=False)
+				accordion_advanced_settings = gr.Accordion(
+					label=get_message('sbv2', 'label_advanced_settings', conf['language']), 
+					open=False
+				)
 				with accordion_advanced_settings:
 
 					# SDP Ratio
@@ -575,6 +743,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 						minimum=0,
 						maximum=1,
 						value=DEFAULT_SDP_RATIO,
+						#value=get_cache("sbv2", "sdp_ratio"), 
 						step=0.1,
 						label=get_message('sbv2', 'label_sdp_ratio', conf['language']),
 					)
@@ -584,6 +753,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 						minimum=0.1,
 						maximum=2,
 						value=DEFAULT_NOISE,
+						#value=get_cache("sbv2", "noise_scale"), 
 						step=0.1,
 						label=get_message('sbv2', 'label_noise_scale', conf['language']),
 					)
@@ -593,6 +763,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 						minimum=0.1,
 						maximum=2,
 						value=DEFAULT_NOISEW,
+						#value=get_cache("sbv2", "noise_scale_w"), 
 						step=0.1,
 						label=get_message('sbv2', 'label_noise_scale_w', conf['language']),
 					)
@@ -602,13 +773,16 @@ def create_inference_app(language_state) -> gr.Blocks:
 						minimum=0.1,
 						maximum=2,
 						value=DEFAULT_LENGTH,
+						#value=get_cache("sbv2", "length_scale"), 
 						step=0.1,
 						label=get_message('sbv2', 'label_length_scale', conf['language']),
 					)
 
 					# Assist textを使う
 					use_assist_text = gr.Checkbox(
-						label=get_message('sbv2', 'checkbox_use_assist_text', conf['language']), value=False
+						label=get_message('sbv2', 'checkbox_use_assist_text', conf['language']), 
+						value=False
+						#value=get_cache("sbv2", "use_assist_text"), 
 					)
 
 					# Assist text
@@ -619,6 +793,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 						placeholder=get_message('sbv2', 'label_assist_text_placeholder', conf['language']),
 						info=get_message('sbv2', 'label_assist_text_info', conf['language']),
 						visible=False,
+						#value=get_cache("sbv2", "assist_text"), 
 					)
 
 					# Assist textの強さ
@@ -626,6 +801,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 						minimum=0,
 						maximum=1,
 						value=DEFAULT_ASSIST_TEXT_WEIGHT,
+						#value=get_cache("sbv2", "assist_text_weight"), 
 						step=0.1,
 						label=get_message('sbv2', 'label_assist_text_weight', conf['language']),
 						visible=False,
@@ -638,9 +814,9 @@ def create_inference_app(language_state) -> gr.Blocks:
 				# プリセットから選ぶ
 				# ["プリセットから選ぶ", "音声ファイルを入力"]
 				style_mode = gr.Radio(
-					[get_message('sbv2', 'radio_preset', conf['language']), get_message('sbv2', 'radio_voice_file', conf['language'])],
+					[[get_message('sbv2', 'radio_preset', conf['language']), 0], [get_message('sbv2', 'radio_voice_file', conf['language']), 1]],
 					label=get_message('sbv2', 'label_style_mode', conf['language']),
-					value=get_message('sbv2', 'radio_preset', conf['language']),
+					#value=get_message('sbv2', 'radio_preset', conf['language']),
 				)
 
 				# スタイル（{DEFAULT_STYLE}が平均スタイル）
@@ -649,7 +825,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 				style = gr.Dropdown(
 					label=get_message('sbv2', 'label_style', conf['language'], default_style=DEFAULT_STYLE),
 					choices=[get_message('sbv2', 'button_load_error', conf['language'])],
-					value=get_message('sbv2', 'button_load_error', conf['language']),
+					#value=get_message('sbv2', 'button_load_error', conf['language']),
 				)
 
 				# スタイルの強さ（声が崩壊したら小さくしてください）
@@ -657,13 +833,17 @@ def create_inference_app(language_state) -> gr.Blocks:
 					minimum=0,
 					maximum=20,
 					value=DEFAULT_STYLE_WEIGHT,
+					#value=get_cache("sbv2", "style_weight"), 
 					step=0.1,
 					label=get_message('sbv2', 'label_style_weight', conf['language']),
 				)
 
 				# 参照音声
 				ref_audio_path = gr.Audio(
-					label=get_message('sbv2', 'label_ref_audio_path', conf['language']), type="filepath", visible=False
+					label=get_message('sbv2', 'label_ref_audio_path', conf['language']), 
+					type="filepath", 
+					#value=get_cache("sbv2", "ref_audio_path"), 
+					visible=False
 				)
 
 				# 音声合成（モデルをロードしてください）
@@ -678,6 +858,48 @@ def create_inference_app(language_state) -> gr.Blocks:
 
 				# 結果
 				audio_output = gr.Audio(label=get_message('sbv2', 'label_voice', conf['language']))
+
+				with gr.Column(visible=False, elem_classes="no-border") as audio_output_to_kkeve:
+
+					# ドロップダウン取得
+					character_options, category_options = get_dropdown_options()
+
+					character_dropdown = gr.Dropdown(
+						label=get_message('sbv2', 'label_character', conf['language']), 
+						choices=character_options, 
+						value=get_cache("sbv2", "character_dropdown"), 
+						allow_custom_value=True,
+						interactive=True, 
+					)
+					category_dropdown  = gr.Dropdown(
+						label=get_message('sbv2', 'label_category', conf['language']), 
+						choices=category_options, 
+						value=get_cache("sbv2", "category_dropdown"), 
+						allow_custom_value=True,
+						interactive=True, 
+					)
+					words_input = gr.Textbox(
+						label=get_message('sbv2', 'label_lines', conf['language']), 
+						value=get_cache("sbv2", "words_input"), 
+						interactive=True 
+					)
+					path_input  = gr.Textbox(
+						label=get_message('sbv2', 'label_path', conf['language']), 
+						value=get_cache("sbv2", "path_input"), 
+						interactive=True 
+					)
+
+					# 音声形式
+					audio_type = gr.Radio(
+						[[get_message('sbv2', 'radio_ogg', conf['language']), "ogg"], [get_message('sbv2', 'radio_wav', conf['language']), "wav"]],
+						label=get_message('sbv2', 'label_audio_type', conf['language']),
+						value=get_cache("sbv2", "audio_type"), 
+					)
+
+					file_input  = gr.Textbox(label=get_message('sbv2', 'label_filename', conf['language']), value=get_cache("sbv2", "file_input"))
+
+					# 外部音声へ送る
+					send_button = gr.Button(get_message('sbv2', 'button_send', conf['language']), scale=1, visible=True)
 
 
 				with gr.Accordion("テキスト例", open=False):
@@ -746,8 +968,18 @@ def create_inference_app(language_state) -> gr.Blocks:
 				speaker, 
 				pitch_scale, 
 				intonation_scale, 
+				audio_type, 
 			],
-			outputs=[text_output, audio_output, tone], 
+			outputs=[
+				text_output, 
+				audio_output, 
+				tone, 
+				audio_output_to_kkeve, 
+				character_dropdown, 
+				words_input, 
+				path_input, 
+				file_input
+			], 
 		)
 
 		model_name.change(
@@ -757,7 +989,12 @@ def create_inference_app(language_state) -> gr.Blocks:
 			outputs=[model_path], 
 		)
 
-		model_path.change(make_non_interactive, outputs=[tts_button])
+		model_path.change(
+			#make_non_interactive, 
+			fn=update_model_path, 
+			inputs=[model_path], 
+			outputs=[tts_button]
+		)
 
 		refresh_button.click(
 			model_holder.update_model_names_for_gradio, 
@@ -765,7 +1002,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 		)
 
 		load_button.click(
-			model_holder.get_model_for_gradio, 
+			#model_holder.get_model_for_gradio, 
+			fn=update_load_button, 
 			inputs=[model_name, model_path], 
 			outputs=[style, tts_button, speaker], 
 		)
@@ -780,27 +1018,28 @@ def create_inference_app(language_state) -> gr.Blocks:
 		pitch_scale.change(fn=update_pitch_scale, inputs=pitch_scale)
 		intonation_scale.change(fn=update_intonation_scale, inputs=intonation_scale)
 
-
-		#line_split.change(fn=update_line_split, inputs=line_split)
 		line_split.change(
-			lambda x: (gr.Slider(visible=x)),
+			#lambda x: (gr.Slider(visible=x)),
+			fn=update_line_split, 
 			inputs=[line_split],
 			outputs=[split_interval],
 		)
 
 		split_interval.change(fn=update_split_interval, inputs=split_interval)
-
 		tone.change(fn=update_tone, inputs=tone)
 
 		use_tone.change(
-			lambda x: (gr.Checkbox(value=False) if x else gr.Checkbox()),
+			# use_tone がON（True）になったらline_splitを強制的にOFF（False）にする
+			#lambda x: (gr.Checkbox(value=False) if x else gr.Checkbox()),
+			fn=update_use_tone, 
 			inputs=[use_tone],
 			outputs=[line_split],
 		)
 
-
 		language.change(fn=update_language, inputs=language)
 		speaker.change(fn=update_speaker, inputs=speaker)
+
+
 		sdp_ratio.change(fn=update_sdp_ratio, inputs=sdp_ratio)
 		noise_scale.change(fn=update_noise_scale, inputs=noise_scale)
 		noise_scale_w.change(fn=update_noise_scale_w, inputs=noise_scale_w)
@@ -820,7 +1059,16 @@ def create_inference_app(language_state) -> gr.Blocks:
 		style_weight.change(fn=update_style_weight, inputs=style_weight)
 		ref_audio_path.change(fn=update_ref_audio_path, inputs=ref_audio_path)
 
+		character_dropdown.change(fn=update_character_dropdown, inputs=[model_name, character_dropdown, audio_type], outputs=file_input)
 
+		audio_type.change(fn=update_audio_type, inputs=[model_name, character_dropdown, audio_type], outputs=file_input)
+
+
+		app.load(
+			initialize_model,
+			inputs=[model_name, model_path],
+			outputs=[style, tts_button, speaker],
+		)
 
 
 
