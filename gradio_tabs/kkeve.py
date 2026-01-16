@@ -20,6 +20,7 @@ import zipfile
 import subprocess
 import shutil
 from pathlib import Path
+import numpy as np
 # ==============================================================================
 # データベースから全レコードを取得
 def get_records():
@@ -202,6 +203,55 @@ def change_model_language(id, name, description):
 	cursor.execute(f"UPDATE model SET name = ?, description = ? WHERE id = ?", (name, description, id))
 	conn.commit()
 	conn.close()
+
+# ------------------------------------------------------------------------------
+# 音声ファイルからバッファ取得
+def load_audio_file(
+	audio_path: str | Path,
+	target_sr: int = 44100,
+	mono: bool = True,
+	ffmpeg_path: str = "ffmpeg",
+) -> tuple[int, np.ndarray]:
+	"""
+	ogg / wav / mp3 / opus などを ffmpeg でデコードして
+	gr.Audio(type="numpy") 用の (sample_rate, pcm[int16]) を返す
+	"""
+
+	audio_path = str(Path(audio_path))
+
+	cmd = [
+		ffmpeg_path,
+		"-v", "error",
+		"-i", audio_path,
+		"-f", "s16le",
+		"-ar", str(target_sr),
+	]
+
+	if mono:
+		cmd += ["-ac", "1"]
+
+	cmd.append("pipe:1")
+
+	result = subprocess.run(
+		cmd,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+		check=False,
+	)
+
+	if result.returncode != 0 or not result.stdout:
+		raise RuntimeError(
+			"ffmpeg decode error:\n" +
+			result.stderr.decode("utf-8", errors="ignore")
+		)
+
+	pcm = np.frombuffer(result.stdout, dtype=np.int16)
+
+	# gradio が期待する contiguous array
+	pcm = np.ascontiguousarray(pcm)
+
+	return target_sr, pcm
+
 
 # ------------------------------------------------------------------------------
 # 言語変更
@@ -485,7 +535,8 @@ def delete_record(id):
 			get_message('kkeve', 'message_error_id', conf['language']), 
 			get_records(), 
 			*update_move_button(id), 
-			*get_record(id) 
+			*get_record(id), 
+			gr.update() 
 		)
 	try:
 		conn = sqlite3.connect(conf['db_path'])
@@ -500,15 +551,24 @@ def delete_record(id):
 			gr.update(interactive=False),
 			gr.update(interactive=False),
 			gr.update(interactive=False),
-			None, None, None, None, None, None, None 
+			None, None, None, None, None, None, None, 
+			gr.update(value=None) 
 		)
 
 	except Exception as e:
+		model, id, character, category, words, path, file = get_record(id)
 		return (
 			get_message('kkeve', 'message_error', conf['language'], error=str(e)), 
 			get_records(), 
 			*update_move_button(id), 
-			*get_record(id) 
+			gr.update(value=model), 
+			gr.update(value=id), 
+			gr.update(value=character), 
+			gr.update(value=category), 
+			gr.update(value=words), 
+			gr.update(value=path), 
+			gr.update(value=file), 
+			update_voice_player(path, file)
 		)
 
 # ------------------------------------------------------------------------------
@@ -517,9 +577,21 @@ def select_record(evt: gr.SelectData):
 	df = get_records()
 	selected_id = df.iloc[evt.index[0]]['id']
 	update_move_button(selected_id)
+	model, id, character, category, words, path, file = get_record(selected_id)
+
+	#print (f"p:{path} f:{file}")
+
 	return (
 		*update_move_button(selected_id),
-		*get_record(selected_id) 
+		#*get_record(selected_id), 
+		gr.update(value=model), 
+		gr.update(value=id), 
+		gr.update(value=character), 
+		gr.update(value=category), 
+		gr.update(value=words), 
+		gr.update(value=path), 
+		gr.update(value=file), 
+		update_voice_player(path, file)
 	)
 
 # ------------------------------------------------------------------------------
@@ -558,15 +630,30 @@ def update_file(file):
 def update_voice(voice):
 	update_cache("kkeve", "voice_player", voice)
 
+# ------------------------------------------------------------------------------
+# プレイヤー更新
+def update_voice_player(path, file):
+	target_path = "/".join([conf['voice_path'], path, file])
+	if os.path.exists(target_path):
+		try:
+			#sr, pcm = load_audio_file(target_path)
+			return gr.update(value=load_audio_file(target_path))
+		except Exception:
+			return gr.update(value=None)
+	else:
+		return gr.update(value=None)
+
+# プレイヤー初期化
+def initialize_voice_player():
+	path=get_cache("kkeve", "path_input")
+	file=get_cache("kkeve", "file_input")
+	return update_voice_player(path, file)
+
+# 更新
 def update_path_file(path, file):
 	update_path(path)
 	update_file(file)
-	voice = conf['voice_path']+'/'+path+'/'+file
-	update_voice(voice)
-	if os.path.exists(voice) and voice.lower().endswith('.wav'):
-		return gr.update(value=voice)
-	else:
-		return gr.update(value=None)
+	return update_voice_player(path, file)
 
 # ------------------------------------------------------------------------------
 # 移動ボタン切替
@@ -1063,7 +1150,8 @@ def create_interface(language_state) -> gr.Blocks:
 				file_input  = gr.Textbox(label=get_message('kkeve', 'label_filename', conf['language']), value=get_cache("kkeve", "file_input"))
 				# gr.Audioのラベルは変更できない
 				#voice_player= gr.Audio(label=get_message('kkeve', 'label_voice', conf['language']), type="filepath", show_label=True, show_download_button=False, value=get_cache("kkeve", "voice_player"))
-				voice_player= gr.Audio(label="Voice", type="filepath", show_label=True, value=get_cache("kkeve", "voice_player"))
+				#voice_player= gr.Audio(label="Voice", type="filepath", show_label=True, value=get_cache("kkeve", "voice_player"))
+				voice_player= gr.Audio(label="Voice", type="numpy")
 
 		with gr.Row():
 			with gr.Column():
@@ -1237,7 +1325,8 @@ def create_interface(language_state) -> gr.Blocks:
 				category_dropdown, 
 				words_input, 
 				path_input, 
-				file_input
+				file_input, 
+				voice_player 
 			]
 		)
 		df_output.select(
@@ -1254,7 +1343,8 @@ def create_interface(language_state) -> gr.Blocks:
 				category_dropdown, 
 				words_input, 
 				path_input, 
-				file_input
+				file_input, 
+				voice_player
 			]
 		)
 
@@ -1284,6 +1374,11 @@ def create_interface(language_state) -> gr.Blocks:
 			kks_button.click(fn=kks_run)
 		if kkp_path is not None:
 			kkp_button.click(fn=kkp_run)
+
+		app.load(
+			fn=initialize_voice_player,
+			outputs=[voice_player],
+		)
 
 	return app
 

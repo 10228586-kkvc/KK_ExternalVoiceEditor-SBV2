@@ -20,6 +20,7 @@ import tempfile
 import zipfile
 import subprocess
 import shutil
+import numpy as np
 
 from style_bert_vits2.constants import (
 	DEFAULT_ASSIST_TEXT_WEIGHT, 
@@ -181,13 +182,259 @@ def generate_random_id(length=8):
 	return ''.join(random.choices(chars, k=length))
 
 # ------------------------------------------------------------------------------
+# ID存在チェック
+def id_exists(voice_id: str) -> bool:
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+	cursor.execute("SELECT 1 FROM voice WHERE id = ?", (voice_id,))
+	result = cursor.fetchone()
+	conn.close()
+	return result is not None
+
+# ------------------------------------------------------------------------------
+# ユニークなIDを生成
+def generate_unique_id(length=8):
+	while True:
+		new_id = generate_random_id(length)
+		if not id_exists(new_id):
+			return new_id
+
+# ------------------------------------------------------------------------------
 # ユニークなIDを生成
 def generate_unique_filename(output_path, model_name, character, audio_type, length=4):
 	while True:
 		new_id = generate_random_id(length)
 		filename = f"{model_name}-{character}-{new_id}.{audio_type}"
-		if not os.path.exists(os.path.join(output_path, filename)):
+		target_path = "/".join([conf['voice_path'], output_path])
+
+		if not os.path.exists(os.path.join(target_path, filename)):
 			return filename
+
+# ------------------------------------------------------------------------------
+# バッファに音声データがあるか
+def has_pcm_audio(pcm: np.ndarray, min_rms: float = 1e-4) -> bool:
+	if not isinstance(pcm, np.ndarray):
+		return False
+	if pcm.size == 0:
+		return False
+
+	rms = np.sqrt(np.mean(pcm.astype(np.float32) ** 2))
+	return rms > min_rms
+
+
+# ------------------------------------------------------------------------------
+# 音声ファイル出力
+def save_audio(
+	audio_output,
+	audio_path: str | Path,
+	audio_type: str = "ogg",
+	ogg_quality: int = 5,
+	ffmpeg_path: str = "ffmpeg"
+) -> bool:
+	try:
+		if audio_output is None:
+			return False
+
+		sample_rate, pcm = audio_output
+
+
+		pcm = np.asarray(pcm)
+
+		# 次元修正
+		if pcm.ndim == 2:
+			pcm = pcm.squeeze()
+
+		# float → int16
+		if pcm.dtype != np.int16:
+			pcm = np.clip(pcm, -32768, 32767).astype(np.int16)
+
+		# --- 出力先 ---
+		audio_path = "/".join([conf['voice_path'], audio_path])
+		audio_path = Path(audio_path)
+		audio_path.parent.mkdir(parents=True, exist_ok=True)
+
+		cmd = [
+			ffmpeg_path,
+			"-y",
+			"-f", "s16le",
+			"-ar", str(sample_rate),
+			"-ac", "1",
+			"-i", "pipe:0",
+		]
+
+		if audio_type.lower() == "wav":
+			cmd += ["-c:a", "pcm_s16le"]
+		elif audio_type.lower() == "ogg":
+			cmd += ["-c:a", "libvorbis", "-q:a", str(ogg_quality)]
+		else:
+			return False
+
+		cmd.append(str(audio_path))
+
+		# デバッグ（残してOK）
+		#print("dtype:", pcm.dtype)
+		#print("shape:", pcm.shape)
+		#print("max/min:", pcm.max(), pcm.min())
+
+		result = subprocess.run(
+			cmd,
+			input=pcm.tobytes(),
+			stdout=subprocess.PIPE,
+			stderr=subprocess.PIPE,
+		)
+
+		if result.returncode != 0:
+			print("ffmpeg error:", result.stderr.decode("utf-8", errors="ignore"))
+			return False
+
+		return audio_path.exists() and audio_path.stat().st_size > 0
+
+	except Exception as e:
+		print("save_audio exception:", e)
+		return False
+
+# ------------------------------------------------------------------------------
+# 音声ファイルからバッファ取得
+def load_audio_file(
+	audio_path: str | Path,
+	target_sr: int = 44100,
+	mono: bool = True,
+	ffmpeg_path: str = "ffmpeg",
+):
+	"""
+	ogg / wav / mp3 / opus などを ffmpeg でデコードして
+	gr.Audio(type="numpy") 用の (sample_rate, pcm) を返す
+	"""
+
+	audio_path = str(audio_path)
+
+	cmd = [
+		ffmpeg_path,
+		"-i", audio_path,
+		"-f", "f32le",
+		"-ar", str(target_sr),
+	]
+
+	if mono:
+		cmd += ["-ac", "1"]
+
+	cmd.append("pipe:1")
+
+	result = subprocess.run(
+		cmd,
+		stdout=subprocess.PIPE,
+		stderr=subprocess.PIPE,
+	)
+
+	if result.returncode != 0:
+		raise RuntimeError(
+			"ffmpeg decode error:\n" +
+			result.stderr.decode("utf-8", errors="ignore")
+		)
+
+	pcm = np.frombuffer(result.stdout, dtype=np.float32)
+
+	# 念のため
+	pcm = np.ascontiguousarray(pcm)
+	pcm = np.clip(pcm, -1.0, 1.0)
+
+	return target_sr, pcm
+
+# ------------------------------------------------------------------------------
+# 最大 sort を返す関数
+def get_new_sort():
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+	cursor.execute(f"SELECT MAX(sort) FROM {conf['tbl_voice']}")
+	result = cursor.fetchone()
+	conn.close()
+	return (result[0]+1) if result[0] is not None else 0
+
+# ------------------------------------------------------------------------------
+# ランダム文字列生成
+def generate_random_id(length=8):
+	chars = string.ascii_letters + string.digits  # 英大文字・小文字 + 数字
+	return ''.join(random.choices(chars, k=length))
+
+# ------------------------------------------------------------------------------
+# モデルID取得
+def get_model_id(model):
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+	cursor.execute(f"SELECT id FROM {conf['tbl_model']} WHERE name = ?", (model,))
+	result = cursor.fetchone()
+	conn.close()
+	if not result:
+		return None
+	return result[0]
+
+# ------------------------------------------------------------------------------
+# レコード追加
+def add_record(model, character, category, words, path, file):
+
+	global conf
+	new_id = generate_unique_id()
+	model_id = get_model_id(model)
+
+	try:
+		conn = sqlite3.connect(conf['db_path'])
+		cursor = conn.cursor()
+		cursor.execute(
+			f"INSERT INTO {conf['tbl_voice']} (model, id, sort, character, category, words, path, file) VALUES (?, ?, ?, ?, ?, ?, ?, ?)", 
+			(model_id, new_id, get_new_sort(), character, category, words, path, file)
+		)
+		conn.commit()
+		conn.close()
+		return True
+
+	except Exception as e:
+		return False
+
+# ------------------------------------------------------------------------------
+# 外部音声へ送る
+def send_audio(
+	audio_output, 
+	model, 
+	character, 
+	category, 
+	words, 
+	path, 
+	audio_type, 
+	file 
+):
+
+	global conf
+
+	audio_path = "/".join([path, file])
+	if not words:
+		return (
+			gr.update(value=get_message('kkeve', 'message_error_words', conf['language'])), 
+			gr.update()
+		)
+	elif not path:
+		return (
+			gr.update(value=get_message('kkeve', 'message_error_path', conf['language'])), 
+			gr.update()
+		)
+	elif not file:
+		return (
+			gr.update(value=get_message('kkeve', 'message_error_file', conf['language'])), 
+			gr.update()
+		)
+
+	if save_audio(audio_output, audio_path, audio_type) and add_record(model, character, category, words, path, file):
+
+		output_path = "/".join([path, model])
+		return (
+			gr.update(value=get_message('sbv2', 'message_save_audio', conf['language'], audio_path=audio_path)), 
+			gr.update(value=generate_unique_filename(output_path, model, character, audio_type))
+		)
+
+	else:
+		return (
+			gr.update(value=get_message('sbv2', 'message_error_save_audio', conf['language'], audio_path=audio_path)), 
+			gr.update()
+		)
 
 # ------------------------------------------------------------------------------
 # 言語変更
@@ -364,8 +611,6 @@ def update_audio_type(model_name, character, audio_type):
 	output_path = "/".join([get_message('sbv2', 'default_path', conf['language']), model_name])
 
 	return gr.update(value=generate_unique_filename(output_path, model_name, character, audio_type))
-
-
 
 # ------------------------------------------------------------------------------
 # ドロップダウン
@@ -853,13 +1098,10 @@ def create_inference_app(language_state) -> gr.Blocks:
 					interactive=False,
 				)
 
-				# 情報
-				text_output = gr.Textbox(label=get_message('sbv2', 'label_message', conf['language']))
-
-				# 結果
-				audio_output = gr.Audio(label=get_message('sbv2', 'label_voice', conf['language']))
-
 				with gr.Column(visible=False, elem_classes="no-border") as audio_output_to_kkeve:
+
+					# 結果
+					audio_output = gr.Audio(label=get_message('sbv2', 'label_voice', conf['language']))
 
 					# ドロップダウン取得
 					character_options, category_options = get_dropdown_options()
@@ -901,6 +1143,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 					# 外部音声へ送る
 					send_button = gr.Button(get_message('sbv2', 'button_send', conf['language']), scale=1, visible=True)
 
+				# 情報
+				text_output = gr.Textbox(label=get_message('sbv2', 'label_message', conf['language']))
 
 				with gr.Accordion("テキスト例", open=False):
 					gr.Examples(examples, inputs=[text_input, language])
@@ -1063,6 +1307,23 @@ def create_inference_app(language_state) -> gr.Blocks:
 
 		audio_type.change(fn=update_audio_type, inputs=[model_name, character_dropdown, audio_type], outputs=file_input)
 
+		send_button.click(
+			fn=send_audio,
+			inputs=[
+				audio_output, 
+				model_name, 
+				character_dropdown, 
+				category_dropdown, 
+				words_input, 
+				path_input, 
+				audio_type, 
+				file_input 
+			], 
+			outputs=[
+				text_output, 
+				file_input
+			]
+		)
 
 		app.load(
 			initialize_model,
