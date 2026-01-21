@@ -149,6 +149,7 @@ def load_tokenizer(
             pretrained_model_name_or_path,
             cache_dir=cache_dir,
             revision=revision,
+            clean_up_tokenization_spaces=True
         )
     __loaded_tokenizers[language] = tokenizer
     logger.info(

@@ -204,6 +204,15 @@ def get_message(target, id, cd, **kwargs):
 	return template.format(**kwargs)
 
 # ------------------------------------------------------------------------------
+# 言語別メッセージ群取得
+def get_messages(target, cd):
+	conn = sqlite3.connect(conf['db_path'])
+	df = pd.read_sql_query(f"SELECT id, value FROM language WHERE target = '{target}' AND cd = '{cd}'", conn)
+	conn.close()
+	return df
+
+
+# ------------------------------------------------------------------------------
 # 言語変更
 def change_language(language):
 	global conf
@@ -216,6 +225,23 @@ def change_language(language):
 			*[gr.update() for _ in conf["tab_list"]] # tabs
 			#*[gr.TabItem.update() for _ in conf["tab_list"]] # tabs
 		)
+
+	# データベース変更
+	#conn = sqlite3.connect(conf['db_path'])
+	#cursor = conn.cursor()
+
+	# 性格レコード言語切替
+	#characters = get_messages("character", conf['language'])
+	#for index, row in characters.iterrows():
+	#	cursor.execute(f"UPDATE character SET name = ? WHERE id = ?", (row["value"], row["id"]))
+
+	# カテゴリーレコード言語切替
+	#categories = get_messages("category", conf['language'])
+	#for index, row in categories.iterrows():
+	#	cursor.execute(f"UPDATE category SET name = ? WHERE id = ?", (row["value"], row["id"]))
+
+	#conn.commit()
+	#conn.close()
 
 	# 言語更新
 	update_cache("kkeve", "language", language)
@@ -240,6 +266,7 @@ def change_language(language):
 # Gradioインターフェース
 def create_interface():
 	global conf
+
 	kkeve.main(conf)
 	sbv2.main(conf)
 
@@ -249,11 +276,7 @@ def create_interface():
 		conf['language'] = locale.getdefaultlocale()[0][:2]
 		update_cache("kkeve", "language", conf['language'])
 
-
-
-	with gr.Blocks(theme='NoCrypt/miku') as app:
-
-
+	with gr.Blocks() as app:
 
 		language_state = gr.State(value=conf["language"])# gr.Blocksより下に書く
 
@@ -280,7 +303,7 @@ def create_interface():
 			</style>
 		""")
 		with gr.Row(elem_classes="lang-row"):
-			title_markdown = gr.Markdown(f"# {get_message('kkeve', 'label_title', conf['language'])}")
+			title_markdown = gr.Markdown(f"# {get_message('kkeve', 'label_title', conf['language'])} v{conf['version']}")
 
 			# 言語
 			language_dropdown = gr.Dropdown(
@@ -350,7 +373,7 @@ def main(config):
 
 	# --------------------------------------------------------------------------
 	app = create_interface()
-	app.launch(inbrowser=True)
+	app.launch(inbrowser=True, theme=conf['gradio_theme'])
 
 if __name__ == "__main__":
 

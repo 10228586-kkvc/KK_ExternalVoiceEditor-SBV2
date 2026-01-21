@@ -633,6 +633,9 @@ def update_voice(voice):
 # ------------------------------------------------------------------------------
 # プレイヤー更新
 def update_voice_player(path, file):
+	if not conf['voice_path'] or not path or not file:
+		return gr.update(value=None)
+
 	target_path = "/".join([conf['voice_path'], path, file])
 	if os.path.exists(target_path):
 		try:

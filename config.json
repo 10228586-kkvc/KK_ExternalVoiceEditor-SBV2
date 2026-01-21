@@ -1,5 +1,6 @@
 {
-	"model_check": true, 
+	"version": "1.0.0", 
+	"gradio_theme": "NoCrypt/miku", 
 	"model_repository": "kkvc-hf/style-bert-vits2-ja-models", 
 	"model_target": ["config.json", "model.safetensors", "style_vectors.npy"], 
 	"assets_root": "model_assets", 

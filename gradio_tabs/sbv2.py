@@ -1,5 +1,5 @@
 # ┌──────────────────────────────────────
-# │  KK_ExternalVoiceEditor v1.0.0 (2025.06.01)
+# │  KK_ExternalVoiceEditor v1.0.0 (2026.01.21)
 # └──────────────────────────────────────
 # ==============================================================================
 import datetime
@@ -35,6 +35,12 @@ from style_bert_vits2.constants import (
 	GRADIO_THEME, 
 	Languages, 
 )
+DEFAULT_PITCH_SCALE=1
+DEFAULT_INTONATION_SCALE=1
+DEFAULT_USE_TONE = False
+DEFAULT_USE_ASSIST_TEXT = False
+DEFAULT_ACCORDION_ADVANCED_SETTINGS = False
+
 from style_bert_vits2.logging import logger
 from style_bert_vits2.models.infer import InvalidToneError
 from style_bert_vits2.nlp.japanese import pyopenjtalk_worker as pyopenjtalk
@@ -44,9 +50,6 @@ from style_bert_vits2.tts_model import TTSModelHolder
 
 pyopenjtalk.initialize_worker()
 # ==============================================================================
-
-
-
 languages = [lang.value for lang in Languages]
 
 initial_text = "こんにちは、初めまして。あなたの名前はなんていうの？"
@@ -97,14 +100,6 @@ examples = [
 		"""音声合成は、機械学習を活用して、テキストから人の声を再現する技術です。この技術は、言語の構造を解析し、それに基づいて音声を生成します。
 この分野の最新の研究成果を使うと、より自然で表現豊かな音声の生成が可能である。深層学習の応用により、感情やアクセントを含む声質の微妙な変化も再現することが出来る。""",
 		"JP",
-	],
-	[
-		"Speech synthesis is the artificial production of human speech. A computer system used for this purpose is called a speech synthesizer, and can be implemented in software or hardware products.",
-		"EN",
-	],
-	[
-		"语音合成是人工制造人类语音。用于此目的的计算机系统称为语音合成器，可以通过软件或硬件产品实现。",
-		"ZH",
 	],
 ]
 
@@ -221,7 +216,6 @@ def has_pcm_audio(pcm: np.ndarray, min_rms: float = 1e-4) -> bool:
 	rms = np.sqrt(np.mean(pcm.astype(np.float32) ** 2))
 	return rms > min_rms
 
-
 # ------------------------------------------------------------------------------
 # 音声ファイル出力
 def save_audio(
@@ -236,8 +230,6 @@ def save_audio(
 			return False
 
 		sample_rate, pcm = audio_output
-
-
 		pcm = np.asarray(pcm)
 
 		# 次元修正
@@ -423,7 +415,6 @@ def send_audio(
 		)
 
 	if save_audio(audio_output, audio_path, audio_type) and add_record(model, character, category, words, path, file):
-
 		output_path = "/".join([path, model])
 		return (
 			gr.update(value=get_message('sbv2', 'message_save_audio', conf['language'], audio_path=audio_path)), 
@@ -438,14 +429,17 @@ def send_audio(
 
 # ------------------------------------------------------------------------------
 # 言語変更
-
-def change_language(language):
-
-	print(language)
-
+def change_language(language, character_dropdown, category_dropdown):
 	global conf
 	if conf['language_sbv2'] == language: 
 		components = [
+			gr.update(), 
+			gr.update(), 
+			#gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
 			gr.update(), 
 			gr.update(), 
 			gr.update(), 
@@ -480,10 +474,34 @@ def change_language(language):
 		update_cache("sbv2", "language_sbv2", language)
 		conf['language_sbv2'] = language
 
+	# データベース変更
+	conn = sqlite3.connect(conf['db_path'])
+	cursor = conn.cursor()
+
+	# 性格レコード言語切替
+	characters = get_messages("character", conf['language'])
+	for index, row in characters.iterrows():
+		cursor.execute(f"UPDATE character SET name = ? WHERE id = ?", (row["value"], row["id"]))
+
+	# カテゴリーレコード言語切替
+	categories = get_messages("category", conf['language'])
+	for index, row in categories.iterrows():
+		cursor.execute(f"UPDATE category SET name = ? WHERE id = ?", (row["value"], row["id"]))
+
+	conn.commit()
+	conn.close()
+
+	# ドロップダウン取得
+	character_options, category_options = get_dropdown_options()
+
+	style_mode_options = [[get_message('sbv2', 'radio_preset', conf['language']), 0], [get_message('sbv2', 'radio_voice_file', conf['language']), 1]]
+
+	audio_type_options = [[get_message('sbv2', 'radio_ogg', conf['language']), "ogg"], [get_message('sbv2', 'radio_wav', conf['language']), "wav"]]
+
 	components = [
 		gr.update(label=get_message('sbv2', 'label_model_list', conf['language'])), 
 		gr.update(label=get_message('sbv2', 'label_pth_files', conf['language'])), 
-		gr.update(value=get_message('sbv2', 'button_update', conf['language'])), 
+		#gr.update(value=get_message('sbv2', 'button_update', conf['language'])), 
 		gr.update(value=get_message('sbv2', 'button_load', conf['language'])), 
 		gr.update(label=get_message('sbv2', 'label_text', conf['language'])), 
 		gr.update(label=get_message('sbv2', 'label_pitch_scale', conf['language'])), 
@@ -509,12 +527,19 @@ def change_language(language):
 			info=get_message('sbv2', 'label_assist_text_info', conf['language'])
 		), 
 		gr.update(label=get_message('sbv2', 'label_assist_text_weight', conf['language'])), 
-		gr.update(label=get_message('sbv2', 'label_style_mode', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_style_mode', conf['language']), choices=style_mode_options), 
 		gr.update(label=get_message('sbv2', 'label_style', conf['language'], default_style=DEFAULT_STYLE)), 
 		gr.update(label=get_message('sbv2', 'label_style_weight', conf['language'])), 
 		gr.update(label=get_message('sbv2', 'label_ref_audio_path', conf['language'])), 
 		gr.update(value=get_message('sbv2', 'button_tts', conf['language'])), 
-		gr.update(label=get_message('sbv2', 'label_message', conf['language'])) 
+		gr.update(label=get_message('sbv2', 'label_message', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_character', conf['language']), choices=character_options, value=character_dropdown), 
+		gr.update(label=get_message('sbv2', 'label_category', conf['language']), choices=category_options, value=category_dropdown), 
+		gr.update(label=get_message('sbv2', 'label_lines', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_path', conf['language'])), 
+		gr.update(label=get_message('sbv2', 'label_audio_type', conf['language']), choices=audio_type_options), 
+		gr.update(label=get_message('sbv2', 'label_filename', conf['language'])), 
+		gr.update(value=get_message('sbv2', 'button_send', conf['language'])) 
 	]
 	return tuple(components)
 
@@ -522,14 +547,23 @@ def change_language(language):
 # フィールド変更
 def update_model_name(model_name):
 	global model_holder
-	update_cache("sbv2", "model_name", model_name)
 	return model_holder.update_model_files_for_gradio(model_name)
 
-def update_model_path(model_path):
-	update_cache("sbv2", "model_path", model_path)
-	return gr.update(interactive=False, value=get_message('sbv2', 'button_tts', conf['language']))
+def update_model_path(model_path, model_name, trigger_load_flg):
+	if trigger_load_flg:
+		return (
+			gr.update(interactive=False, value=get_message('sbv2', 'button_tts', conf['language'])), 
+			gr.update(value=generate_random_id()) 
+		)
+	else: 
+		return (
+			gr.update(interactive=False, value=get_message('sbv2', 'button_tts', conf['language'])), 
+			gr.update()
+		)
 
 def update_load_button(model_name, model_path):
+	update_cache("sbv2", "model_path", model_path)
+	update_cache("sbv2", "model_name", model_name)
 	global model_holder
 	return model_holder.get_model_for_gradio(model_name, model_path)
 
@@ -578,6 +612,10 @@ def update_length_scale(length_scale):
 
 def update_use_assist_text(use_assist_text):
 	update_cache("sbv2", "use_assist_text", use_assist_text)
+	return (
+		gr.update(visible=use_assist_text),
+		gr.update(visible=use_assist_text),
+	)
 
 def update_assist_text(assist_text):
 	update_cache("sbv2", "assist_text", assist_text)
@@ -599,18 +637,19 @@ def update_ref_audio_path(ref_audio_path):
 
 def update_character_dropdown(model_name, character, audio_type):
 	update_cache("sbv2", "audio_type", audio_type)
-
 	output_path = "/".join([get_message('sbv2', 'default_path', conf['language']), model_name])
-
 	return gr.update(value=generate_unique_filename(output_path, model_name, character, audio_type))
-
 
 def update_audio_type(model_name, character, audio_type):
 	update_cache("sbv2", "audio_type", audio_type)
-
 	output_path = "/".join([get_message('sbv2', 'default_path', conf['language']), model_name])
-
 	return gr.update(value=generate_unique_filename(output_path, model_name, character, audio_type))
+
+def update_trigger_speaker(speaker):
+	return gr.update(value=speaker)
+
+def update_trigger_style(style):
+	return gr.update(value=style)
 
 # ------------------------------------------------------------------------------
 # ドロップダウン
@@ -627,17 +666,18 @@ def get_dropdown_options():
 # モデル初期化（強制ロード）
 def initialize_model(model_name, model_path): 
 	global model_holder
-
 	style, tts_button, speaker = model_holder.get_model_for_gradio(model_name, model_path)
-	style.value      = get_cache("sbv2", "style")
-	tts_button.value = get_cache("sbv2", "tts_button")
-	speaker.value    = get_cache("sbv2", "speaker")
-	#style   = gr.update(value=get_cache("sbv2", "style"))
-	#speaker = gr.update(value=get_cache("sbv2", "speaker"))
 
-	#print(type(style), type(tts_button), type(speaker))
-
-	return style, tts_button, speaker
+	return (
+		style, 
+		tts_button, 
+		speaker, 
+		gr.update(value=generate_random_id()), 
+		gr.update(value=generate_random_id()), 
+		gr.update(value=bool(int(get_cache("sbv2", "line_split")))), 
+		gr.update(value=bool(int(get_cache("sbv2", "use_tone")))), 
+		gr.update(value=bool(int(get_cache("sbv2", "use_assist_text")))) 
+	)
 
 # ------------------------------------------------------------------------------
 # モデルファイル有効化切替
@@ -657,6 +697,161 @@ def gr_util(item):
 		return (gr.update(visible=True), gr.Audio(visible=False, value=None))
 	else:
 		return (gr.update(visible=False), gr.update(visible=True))
+
+# ------------------------------------------------------------------------------
+# 設定初期化
+def init_settings(): 
+
+	return (
+		gr.update(value=DEFAULT_PITCH_SCALE), 
+		gr.update(value=DEFAULT_INTONATION_SCALE), 
+		gr.update(value=DEFAULT_ASSIST_TEXT_WEIGHT), 
+		gr.update(value=DEFAULT_LENGTH), 
+		gr.update(value=DEFAULT_LINE_SPLIT), 
+		gr.update(value=DEFAULT_NOISE), 
+		gr.update(value=DEFAULT_NOISEW), 
+		gr.update(value=DEFAULT_SDP_RATIO), 
+		gr.update(value=DEFAULT_SPLIT_INTERVAL), 
+		gr.update(value=DEFAULT_STYLE), 
+		gr.update(value=DEFAULT_STYLE_WEIGHT), 
+		gr.update(value=DEFAULT_USE_TONE), 
+		gr.update(value=DEFAULT_USE_ASSIST_TEXT) 
+	)
+
+# ------------------------------------------------------------------------------
+# 設定保存
+def save_settings(
+	model_name, 
+	model_path, 
+	text_input, 
+	pitch_scale, 
+	intonation_scale, 
+	line_split, 
+	split_interval, 
+	tone, 
+	use_tone, 
+	language, 
+	speaker, 
+	sdp_ratio, 
+	noise_scale, 
+	noise_scale_w, 
+	length_scale, 
+	use_assist_text, 
+	assist_text, 
+	assist_text_weight, 
+	style_mode, 
+	style, 
+	style_weight, 
+	ref_audio_path
+): 
+	data = {
+		"model_name": model_name, 
+		"model_path": model_path, 
+		"text_input": text_input, 
+		"pitch_scale": pitch_scale, 
+		"intonation_scale": intonation_scale, 
+		"line_split": line_split, 
+		"split_interval": split_interval, 
+		"tone": tone, 
+		"use_tone": use_tone, 
+		"language": language, 
+		"speaker": speaker, 
+		"sdp_ratio": sdp_ratio, 
+		"noise_scale": noise_scale, 
+		"noise_scale_w": noise_scale_w, 
+		"length_scale": length_scale, 
+		"use_assist_text": use_assist_text, 
+		"assist_text": assist_text, 
+		"assist_text_weight": assist_text_weight, 
+		"style_mode": style_mode, 
+		"style": style, 
+		"style_weight": style_weight, 
+		"ref_audio_path": ref_audio_path 
+	}
+
+	now = datetime.datetime.now()
+	timestamp = now.strftime("%Y%m%d%H%M%S")
+	text = truncate_text(text_input)
+	path = Path(f"{model_name}-{text}-{timestamp}.json")
+
+	with path.open("w", encoding="utf-8") as f:
+		json.dump(data, f, ensure_ascii=False, indent=2)
+
+	return path
+
+# ------------------------------------------------------------------------------
+# 設定開く
+def open_settings1(file):
+	if file is None:
+		return (
+			gr.update(), 
+			#gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update(), 
+			gr.update() 
+		)
+
+	with open(file.name, "r", encoding="utf-8") as f:
+		data = json.load(f)
+
+	return (
+		gr.update(value=data["model_name"]), 
+		#gr.update(value=data["model_path"]), 
+		gr.update(value=data["speaker"]), 
+		gr.update(value=data["style"]), 
+		gr.update(value=True), 
+		gr.update(value=data["text_input"]), 
+		gr.update(value=data["pitch_scale"]), 
+		gr.update(value=data["intonation_scale"]), 
+		gr.update(value=data["line_split"]), 
+		gr.update(value=data["split_interval"]), 
+		gr.update(value=data["tone"]), 
+		gr.update(value=data["use_tone"]), 
+		gr.update(value=data["language"]), 
+		gr.update(value=data["sdp_ratio"]), 
+		gr.update(value=data["noise_scale"]), 
+		gr.update(value=data["noise_scale_w"]), 
+		gr.update(value=data["length_scale"]), 
+		gr.update(value=data["use_assist_text"]), 
+		gr.update(value=data["assist_text"]), 
+		gr.update(value=data["assist_text_weight"]), 
+		gr.update(value=data["style_mode"]), 
+		gr.update(value=data["style_weight"]), 
+		gr.update(value=data["ref_audio_path"]) 
+	)
+
+def open_settings2(model_name, model_path):
+	global model_holder
+	style, tts_button, speaker = model_holder.get_model_for_gradio(model_name, model_path)
+	update_cache("sbv2", "model_name", model_name)
+	update_cache("sbv2", "model_path", model_path)
+
+	return (
+		style, 
+		tts_button, 
+		speaker, 
+		gr.update(value=generate_random_id()), 
+		gr.update(value=generate_random_id()), 
+		gr.update(value=False) 
+	)
 
 # ------------------------------------------------------------------------------
 # Gradioインターフェース
@@ -721,7 +916,6 @@ def create_inference_app(language_state) -> gr.Blocks:
 				wrong_tone_message = (
 					"アクセント指定は改行で分けて生成を使わない場合のみ対応しています。"
 				)
-
 
 			try:
 				kata_tone = []
@@ -798,10 +992,6 @@ def create_inference_app(language_state) -> gr.Blocks:
 			config = json.load(f)
 		character = config.get("character")
 
-
-
-		#return message, (sr, audio), kata_tone_json_str
-
 		components = [
 			message, 
 			(sr, audio), 
@@ -814,11 +1004,6 @@ def create_inference_app(language_state) -> gr.Blocks:
 		]
 
 		return tuple(components)
-
-
-
-
-
 
 	model_names = []
 	for model_name in model_holder.model_names: 
@@ -843,8 +1028,6 @@ def create_inference_app(language_state) -> gr.Blocks:
 
 		except Exception as e:
 			print(f"エラー発生 ({config_path}): {e}")
-
-
 
 	# 音声合成モデルチェック
 	#model_names = model_holder.model_names
@@ -871,12 +1054,16 @@ def create_inference_app(language_state) -> gr.Blocks:
 	if df_model_path is None or not df_model_path in initial_pth_files:
 		df_model_path = initial_pth_files[0]
 
-	df_speaker = get_cache("sbv2", "speaker")
-	df_style = get_cache("sbv2", "style")
-
-
 	# --------------------------------------------------------------------------
-	with gr.Blocks(theme=GRADIO_THEME) as app:
+	#with gr.Blocks(theme=GRADIO_THEME) as app:
+	with gr.Blocks() as app:
+		trigger_load_flg = gr.Checkbox(value=False, visible=False)
+		trigger_load    = gr.Textbox(value=generate_random_id(), visible=False)
+		trigger_speaker = gr.Textbox(value=generate_random_id(), visible=False)
+		trigger_style   = gr.Textbox(value=generate_random_id(), visible=False)
+		df_speaker = gr.Textbox(value=get_cache("sbv2", "speaker"), visible=False)
+		df_style   = gr.Textbox(value=get_cache("sbv2", "style"), visible=False)
+
 		with gr.Row():
 			with gr.Column():
 				with gr.Row():
@@ -899,7 +1086,16 @@ def create_inference_app(language_state) -> gr.Blocks:
 						)
 
 					# 更新
-					refresh_button = gr.Button(get_message('sbv2', 'button_update', conf['language']), scale=1, visible=True)
+					#refresh_button = gr.Button(get_message('sbv2', 'button_update', conf['language']), scale=1, visible=True)
+
+					# 設定保存
+					save_button = gr.DownloadButton(get_message('sbv2', 'button_save', conf['language']), scale=1)
+
+					# 設定開く
+					open_button = gr.File(label=get_message('sbv2', 'button_open', conf['language']), interactive=True, file_types=[".json"], type="filepath", scale=1)
+
+					# 設定初期化
+					init_button = gr.Button(get_message('sbv2', 'button_init', conf['language']), scale=1)
 
 					# ロード
 					load_button = gr.Button(get_message('sbv2', 'button_load', conf['language']), scale=1, variant="primary")
@@ -932,8 +1128,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 				# 改行で分けて生成（分けたほうが感情が乗ります）
 				line_split = gr.Checkbox(
 					label=get_message('sbv2', 'checkbox_line_split', conf['language']),
-					#value=DEFAULT_LINE_SPLIT,
-					value=bool(int(get_cache("sbv2", "line_split"))), 
+					value=DEFAULT_LINE_SPLIT,
+					#value=bool(int(get_cache("sbv2", "line_split"))), 
 				)
 
 				# 改行ごとに挟む無音の長さ（秒）
@@ -958,8 +1154,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 				# アクセント調整を使う
 				use_tone = gr.Checkbox(
 					label=get_message('sbv2', 'checkbox_use_tone', conf['language']), 
-					#value=False
-					value=bool(int(get_cache("sbv2", "use_tone"))), 
+					value=False
+					#value=bool(int(get_cache("sbv2", "use_tone"))), 
 				)
 
 				# Language
@@ -987,8 +1183,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 					sdp_ratio = gr.Slider(
 						minimum=0,
 						maximum=1,
-						value=DEFAULT_SDP_RATIO,
-						#value=get_cache("sbv2", "sdp_ratio"), 
+						#value=DEFAULT_SDP_RATIO,
+						value=float(get_cache("sbv2", "sdp_ratio")), 
 						step=0.1,
 						label=get_message('sbv2', 'label_sdp_ratio', conf['language']),
 					)
@@ -997,8 +1193,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 					noise_scale = gr.Slider(
 						minimum=0.1,
 						maximum=2,
-						value=DEFAULT_NOISE,
-						#value=get_cache("sbv2", "noise_scale"), 
+						#value=DEFAULT_NOISE,
+						value=float(get_cache("sbv2", "noise_scale")), 
 						step=0.1,
 						label=get_message('sbv2', 'label_noise_scale', conf['language']),
 					)
@@ -1007,8 +1203,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 					noise_scale_w = gr.Slider(
 						minimum=0.1,
 						maximum=2,
-						value=DEFAULT_NOISEW,
-						#value=get_cache("sbv2", "noise_scale_w"), 
+						#value=DEFAULT_NOISEW,
+						value=float(get_cache("sbv2", "noise_scale_w")), 
 						step=0.1,
 						label=get_message('sbv2', 'label_noise_scale_w', conf['language']),
 					)
@@ -1017,8 +1213,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 					length_scale = gr.Slider(
 						minimum=0.1,
 						maximum=2,
-						value=DEFAULT_LENGTH,
-						#value=get_cache("sbv2", "length_scale"), 
+						#value=DEFAULT_LENGTH,
+						value=float(get_cache("sbv2", "length_scale")), 
 						step=0.1,
 						label=get_message('sbv2', 'label_length_scale', conf['language']),
 					)
@@ -1038,15 +1234,15 @@ def create_inference_app(language_state) -> gr.Blocks:
 						placeholder=get_message('sbv2', 'label_assist_text_placeholder', conf['language']),
 						info=get_message('sbv2', 'label_assist_text_info', conf['language']),
 						visible=False,
-						#value=get_cache("sbv2", "assist_text"), 
+						value=get_cache("sbv2", "assist_text"), 
 					)
 
 					# Assist textの強さ
 					assist_text_weight = gr.Slider(
 						minimum=0,
 						maximum=1,
-						value=DEFAULT_ASSIST_TEXT_WEIGHT,
-						#value=get_cache("sbv2", "assist_text_weight"), 
+						#value=DEFAULT_ASSIST_TEXT_WEIGHT,
+						value=float(get_cache("sbv2", "assist_text_weight")), 
 						step=0.1,
 						label=get_message('sbv2', 'label_assist_text_weight', conf['language']),
 						visible=False,
@@ -1061,7 +1257,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 				style_mode = gr.Radio(
 					[[get_message('sbv2', 'radio_preset', conf['language']), 0], [get_message('sbv2', 'radio_voice_file', conf['language']), 1]],
 					label=get_message('sbv2', 'label_style_mode', conf['language']),
-					#value=get_message('sbv2', 'radio_preset', conf['language']),
+					value=int(get_cache("sbv2", "style_mode")), 
 				)
 
 				# スタイル（{DEFAULT_STYLE}が平均スタイル）
@@ -1070,15 +1266,14 @@ def create_inference_app(language_state) -> gr.Blocks:
 				style = gr.Dropdown(
 					label=get_message('sbv2', 'label_style', conf['language'], default_style=DEFAULT_STYLE),
 					choices=[get_message('sbv2', 'button_load_error', conf['language'])],
-					#value=get_message('sbv2', 'button_load_error', conf['language']),
 				)
 
 				# スタイルの強さ（声が崩壊したら小さくしてください）
 				style_weight = gr.Slider(
 					minimum=0,
 					maximum=20,
-					value=DEFAULT_STYLE_WEIGHT,
-					#value=get_cache("sbv2", "style_weight"), 
+					#value=DEFAULT_STYLE_WEIGHT,
+					value=float(get_cache("sbv2", "style_weight")), 
 					step=0.1,
 					label=get_message('sbv2', 'label_style_weight', conf['language']),
 				)
@@ -1087,7 +1282,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 				ref_audio_path = gr.Audio(
 					label=get_message('sbv2', 'label_ref_audio_path', conf['language']), 
 					type="filepath", 
-					#value=get_cache("sbv2", "ref_audio_path"), 
+					value=get_cache("sbv2", "ref_audio_path"), 
 					visible=False
 				)
 
@@ -1101,7 +1296,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 				with gr.Column(visible=False, elem_classes="no-border") as audio_output_to_kkeve:
 
 					# 結果
-					audio_output = gr.Audio(label=get_message('sbv2', 'label_voice', conf['language']))
+					#audio_output = gr.Audio(label=get_message('sbv2', 'label_voice', conf['language']))
+					audio_output = gr.Audio()
 
 					# ドロップダウン取得
 					character_options, category_options = get_dropdown_options()
@@ -1141,7 +1337,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 					file_input  = gr.Textbox(label=get_message('sbv2', 'label_filename', conf['language']), value=get_cache("sbv2", "file_input"))
 
 					# 外部音声へ送る
-					send_button = gr.Button(get_message('sbv2', 'button_send', conf['language']), scale=1, visible=True)
+					send_button = gr.Button(get_message('sbv2', 'button_send', conf['language']), scale=1, visible=True, variant="primary")
 
 				# 情報
 				text_output = gr.Textbox(label=get_message('sbv2', 'label_message', conf['language']))
@@ -1155,7 +1351,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 		outputs=[
 			model_name, 
 			model_path, 
-			refresh_button, 
+			#refresh_button, 
 			load_button, 
 			text_input, 
 			pitch_scale, 
@@ -1179,12 +1375,23 @@ def create_inference_app(language_state) -> gr.Blocks:
 			style_weight, 
 			ref_audio_path, 
 			tts_button, 
-			text_output 
+			text_output, 
+			character_dropdown, 
+			category_dropdown, 
+			words_input, 
+			path_input, 
+			audio_type, 
+			file_input, 
+			send_button
 		]
 
 		language_state.change(
 			fn=change_language,
-			inputs=[language_state], 
+			inputs=[
+				language_state, 
+				character_dropdown, 
+				category_dropdown
+			], 
 			outputs=outputs
 		)
 
@@ -1236,20 +1443,111 @@ def create_inference_app(language_state) -> gr.Blocks:
 		model_path.change(
 			#make_non_interactive, 
 			fn=update_model_path, 
-			inputs=[model_path], 
-			outputs=[tts_button]
+			inputs=[model_path, model_name, trigger_load_flg], 
+			outputs=[tts_button, trigger_load]
 		)
 
-		refresh_button.click(
-			model_holder.update_model_names_for_gradio, 
-			outputs=[model_name, model_path, tts_button], 
-		)
+		#refresh_button.click(
+		#	model_holder.update_model_names_for_gradio, 
+		#	outputs=[model_name, model_path, tts_button], 
+		#)
 
 		load_button.click(
 			#model_holder.get_model_for_gradio, 
 			fn=update_load_button, 
 			inputs=[model_name, model_path], 
 			outputs=[style, tts_button, speaker], 
+		)
+
+		open_button.change(
+			fn=open_settings1, 
+			inputs=[open_button], 
+			outputs=[
+				model_name, 
+				#model_path, 
+				df_speaker, 
+				df_style, 
+				trigger_load_flg, 
+				text_input, 
+				pitch_scale, 
+				intonation_scale, 
+				line_split, 
+				split_interval, 
+				tone, 
+				use_tone, 
+				language, 
+				sdp_ratio, 
+				noise_scale, 
+				noise_scale_w, 
+				length_scale, 
+				use_assist_text, 
+				assist_text, 
+				assist_text_weight, 
+				style_mode, 
+				style_weight, 
+				ref_audio_path 
+			]
+		)
+
+		trigger_load.change(
+			fn=open_settings2, 
+			inputs=[model_name, model_path], 
+			outputs=[
+				style, 
+				tts_button, 
+				speaker, 
+				trigger_speaker, 
+				trigger_style, 
+				trigger_load_flg
+			]
+		)
+
+		save_button.click(
+			fn=save_settings,
+			inputs=[
+				model_name, 
+				model_path, 
+				text_input, 
+				pitch_scale, 
+				intonation_scale, 
+				line_split, 
+				split_interval, 
+				tone, 
+				use_tone, 
+				language, 
+				speaker, 
+				sdp_ratio, 
+				noise_scale, 
+				noise_scale_w, 
+				length_scale, 
+				use_assist_text, 
+				assist_text, 
+				assist_text_weight, 
+				style_mode, 
+				style, 
+				style_weight, 
+				ref_audio_path 
+			], 
+			outputs=[save_button]
+		)
+
+		init_button.click(
+			fn=init_settings,
+			outputs=[
+				pitch_scale, 
+				intonation_scale, 
+				assist_text_weight, 
+				length_scale, 
+				line_split, 
+				noise_scale, 
+				noise_scale_w, 
+				sdp_ratio, 
+				split_interval, 
+				style, 
+				style_weight, 
+				use_tone, 
+				use_assist_text 
+			]
 		)
 
 		style_mode.change(
@@ -1283,17 +1581,20 @@ def create_inference_app(language_state) -> gr.Blocks:
 		language.change(fn=update_language, inputs=language)
 		speaker.change(fn=update_speaker, inputs=speaker)
 
-
 		sdp_ratio.change(fn=update_sdp_ratio, inputs=sdp_ratio)
 		noise_scale.change(fn=update_noise_scale, inputs=noise_scale)
 		noise_scale_w.change(fn=update_noise_scale_w, inputs=noise_scale_w)
 		length_scale.change(fn=update_length_scale, inputs=length_scale)
 
-		#use_assist_text.change(fn=update_use_assist_text, inputs=use_assist_text)
+		#use_assist_text.change(
+		#	lambda x: (gr.Textbox(visible=x), gr.Slider(visible=x)),
+		#	inputs=[use_assist_text],
+		#	outputs=[assist_text, assist_text_weight],
+		#)
 		use_assist_text.change(
-			lambda x: (gr.Textbox(visible=x), gr.Slider(visible=x)),
+			fn=update_use_assist_text, 
 			inputs=[use_assist_text],
-			outputs=[assist_text, assist_text_weight],
+			outputs=[assist_text, assist_text_weight]
 		)
 
 		assist_text.change(fn=update_assist_text, inputs=assist_text)
@@ -1325,13 +1626,32 @@ def create_inference_app(language_state) -> gr.Blocks:
 			]
 		)
 
+		trigger_speaker.change(
+			fn=update_trigger_speaker, 
+			inputs=[df_speaker], 
+			outputs=[speaker]
+		)
+
+		trigger_style.change(
+			fn=update_trigger_style, 
+			inputs=[df_style], 
+			outputs=[style]
+		)
+
 		app.load(
 			initialize_model,
 			inputs=[model_name, model_path],
-			outputs=[style, tts_button, speaker],
+			outputs=[
+				style, 
+				tts_button, 
+				speaker, 
+				trigger_speaker, 
+				trigger_style, 
+				line_split, 
+				use_tone, 
+				use_assist_text 
+			],
 		)
-
-
 
 	return app
 
