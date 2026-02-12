@@ -1302,6 +1302,7 @@ def create_inference_app(language_state) -> gr.Blocks:
 					# ドロップダウン取得
 					character_options, category_options = get_dropdown_options()
 
+					# 性格
 					character_dropdown = gr.Dropdown(
 						label=get_message('sbv2', 'label_character', conf['language']), 
 						choices=character_options, 
@@ -1309,6 +1310,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 						allow_custom_value=True,
 						interactive=True, 
 					)
+
+					# カテゴリー
 					category_dropdown  = gr.Dropdown(
 						label=get_message('sbv2', 'label_category', conf['language']), 
 						choices=category_options, 
@@ -1316,11 +1319,15 @@ def create_inference_app(language_state) -> gr.Blocks:
 						allow_custom_value=True,
 						interactive=True, 
 					)
+
+					# セリフ
 					words_input = gr.Textbox(
 						label=get_message('sbv2', 'label_lines', conf['language']), 
 						value=get_cache("sbv2", "words_input"), 
 						interactive=True 
 					)
+
+					# パス（[インストールフォルダ/UserData/] 以降のフォルダ名）
 					path_input  = gr.Textbox(
 						label=get_message('sbv2', 'label_path', conf['language']), 
 						value=get_cache("sbv2", "path_input"), 
@@ -1342,8 +1349,8 @@ def create_inference_app(language_state) -> gr.Blocks:
 				# 情報
 				text_output = gr.Textbox(label=get_message('sbv2', 'label_message', conf['language']))
 
-				with gr.Accordion("テキスト例", open=False):
-					gr.Examples(examples, inputs=[text_input, language])
+				#with gr.Accordion("テキスト例", open=False):
+				#	gr.Examples(examples, inputs=[text_input, language])
 
 		# ----------------------------------------------------------------------
 		# イベントハンドラ
