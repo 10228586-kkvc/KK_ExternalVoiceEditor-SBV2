@@ -988,7 +988,7 @@ def output_contents(output, game):
 
 						num = 0
 						for voice_list_row in voice_list_rows:
-							voice_list_f.write(f"{num},{voice_list_row[0]},{voice_list_row[1]},{voice_list_row[2]},{voice_list_row[3]},{voice_list_row[4]}\n")
+							voice_list_f.write(f"{num},{voice_list_row[0]},{voice_list_row[1]},{voice_list_row[2].replace(",", "")},{voice_list_row[3]},{voice_list_row[4]}\n")
 							num += 1
 
 		# ----------------------------------------------------------------------

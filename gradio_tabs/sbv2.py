@@ -152,6 +152,8 @@ def get_messages(target, cd):
 def truncate_text(text: str, encoding: str = "utf-8", max_bytes: int = 80) -> str:
 	# 改行を削除
 	text = text.replace("\r", "").replace("\n", "")
+	# カンマを削除
+	text = text.replace(",", "")
 
 	encoded = text.encode(encoding)
 
