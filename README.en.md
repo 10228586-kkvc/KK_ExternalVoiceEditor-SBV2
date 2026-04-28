@@ -78,6 +78,8 @@
 ![Add any audio data to Koikatsu's character studio voice.](https://github.com/user-attachments/assets/ad7565d3-6bad-4d4d-b05b-489bc206bffb)
 
 ** Chara Studio Voice MOD Tutorial **
+[![In the Character Studio of Koikatsu 2, characters can say whatever lines you like! Import external audio and use AI to synthesize voice actor voices! KK_ExternalVoiceEditor-SBV2! 【Tutorial】](https://github.com/user-attachments/assets/f3fc991b-cb15-4457-a0d6-3efbbfa5528f)](https://www.youtube.com/watch?v=ALe0UQZ2Yis)
+
 [![【Koikatsu character studio】Characters speak! Timeline + God feature of audio MOD! Reproduce voice actor voices with AI! You can create scenes with voices!【Tutorial】](https://github.com/user-attachments/assets/9f6396b1-35fa-4822-90d7-27bb9bb046ba)](https://www.youtube.com/watch?v=Aw6TAnGvwCw)
 
 ** Related information **
